@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<div class="row-between">
+  <h1>Notifications</h1>
+  <a class="btn-sm primary" href="{{ url_for('settings_notification_edit') }}">+ Add email</a>
+</div>
+
+{% if notifications %}
+<table class="tbl">
+  <thead><tr><th>Description</th><th>Type</th><th>Enabled</th><th></th></tr></thead>
+  <tbody>
+  {% for n in notifications %}
+    <tr>
+      <td><a href="{{ url_for('settings_notification_edit', nid=n.id) }}">{{ n.description }}</a></td>
+      <td>{{ type_names.get(n.type, 'Type %d' % n.type) }}</td>
+      <td>{{ 'yes' if n.enabled else 'no' }}</td>
+      <td class="actions">
+        <form method="post" action="{{ url_for('settings_notification_test', nid=n.id) }}" style="display:inline">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button class="btn-sm" type="submit">Test</button>
+        </form>
+        <form method="post" action="{{ url_for('settings_notification_delete', nid=n.id) }}" style="display:inline"
+              onsubmit="return confirm('Delete this notification?')">
+          <input type="hidden" name="csrf" value="{{ csrf }}">
+          <button class="btn-sm danger" type="submit">Delete</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="note">No notifications yet. Add an email notification to get alerts.</p>
+{% endif %}
+
+<p class="note">Only email notifications send in this build. Other types (Pushover, Twilio,
+etc.) imported from an AlarmDecoder export are preserved and re-exported, but not delivered.</p>
+{% endblock %}

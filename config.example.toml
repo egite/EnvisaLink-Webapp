@@ -1,0 +1,40 @@
+# EnvisaLink webapp configuration.
+# Copy this to  config.toml  and fill in the CHANGEME values.
+#
+# On the EnvisaLink itself first:
+#   - change its local password from the default "user" (4+ chars; EVL3 max 6)
+#   - give it a static IP / DHCP reservation
+#   - make sure nothing else is talking to port 4025 (only one TPI client allowed)
+
+[envisalink]
+host = "192.168.1.50"        # EnvisaLink IP address
+port = 4025
+username = "user"            # TPI login name (almost always "user")
+password = "CHANGEME"        # EnvisaLink LOCAL password (the non-default one)
+panel_type = "DSC"
+evl_version = 3              # 3 for EVL3, 4 for EVL4
+keepalive_interval = 30     # seconds; heartbeat so the board doesn't reboot
+zone_timer_interval = 20    # seconds between zone-timer dumps
+
+[alarm]
+code = "1234"               # code used to arm/disarm from the web UI
+num_zones = 16              # how many zones to display
+num_partitions = 1
+
+[web]
+host = "0.0.0.0"            # 0.0.0.0 = reachable from other machines on the LAN
+port = 8080
+login_password = "CHANGEME"  # password to log into THIS web UI (separate from the alarm code)
+
+# Name your zones. One [[zones]] block each. Unlisted zones show as "Zone N".
+[[zones]]
+number = 1
+name = "Front Door"
+
+[[zones]]
+number = 2
+name = "Back Door"
+
+[[zones]]
+number = 3
+name = "Living Room Motion"

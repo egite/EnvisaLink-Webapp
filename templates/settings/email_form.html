@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if n else 'Add' }} email notification{% endblock %}
+{% set s = current.s %}
+{% block content %}
+<h1>{{ 'Edit' if n else 'Add' }} email notification</h1>
+<form method="post" class="form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+
+  <fieldset>
+    <legend>General</legend>
+    <label>Description
+      <input type="text" name="description" value="{{ n.description if n else 'Email' }}" required>
+    </label>
+    <label class="chk"><input type="checkbox" name="enabled" {% if not n or n.enabled %}checked{% endif %}> Enabled</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Email</legend>
+    <label>To (comma-separated)
+      <input type="text" name="destination" value="{{ s.get('destination','') }}" placeholder="you@example.com"></label>
+    <label>From
+      <input type="text" name="source" value="{{ s.get('source','') }}" placeholder="alarm@example.com"></label>
+    <label>Subject
+      <input type="text" name="subject" value="{{ s.get('subject','') }}" placeholder="Alarm notification"></label>
+    <div class="two">
+      <label>SMTP server
+        <input type="text" name="server" value="{{ s.get('server','') }}" placeholder="smtp.example.com"></label>
+      <label>Port
+        <input type="number" name="port" value="{{ s.get('port') or 25 }}"></label>
+    </div>
+    <div class="chks">
+      <label class="chk"><input type="checkbox" name="tls" {% if s.get('tls') %}checked{% endif %}> STARTTLS</label>
+      <label class="chk"><input type="checkbox" name="ssl" {% if s.get('ssl') %}checked{% endif %}> SSL</label>
+      <label class="chk"><input type="checkbox" name="authentication_required" {% if s.get('authentication_required') %}checked{% endif %}> Auth required</label>
+      <label class="chk"><input type="checkbox" name="suppress_timestamp" {% if s.get('suppress_timestamp') %}checked{% endif %}> No timestamp</label>
+    </div>
+    <div class="two">
+      <label>Username
+        <input type="text" name="username" value="{{ s.get('username','') }}" autocomplete="off"></label>
+      <label>Password
+        <input type="password" name="password" value="{{ s.get('password','') }}" autocomplete="new-password"></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Events</legend>
+    <div class="chks grid">
+      {% for etype, label in subscriptions.items() %}
+        <label class="chk"><input type="checkbox" name="subscriptions" value="{{ etype }}"
+          {% if current.subs.get(etype) %}checked{% endif %}> {{ label }}</label>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Zone filter (for zone fault / restore / bypass events)</legend>
+    <div class="chks grid">
+      {% for num, name in zone_choices %}
+        <label class="chk"><input type="checkbox" name="zone_filter" value="{{ num }}"
+          {% if num in current.zfilter %}checked{% endif %}> {{ num }} &middot; {{ name }}</label>
+      {% endfor %}
+    </div>
+    <p class="hint">Zone events only send for zones ticked here.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Time window &amp; throttle</legend>
+    <div class="two">
+      <label>Start time <input type="time" step="1" name="starttime" value="{{ s.get('starttime','00:00:00') }}"></label>
+      <label>End time <input type="time" step="1" name="endtime" value="{{ s.get('endtime','23:59:59') }}"></label>
+    </div>
+    <div class="two">
+      <label>Throttle: max emails <input type="number" min="0" name="throttle_count" value="{{ s.get('throttle_count') or 0 }}"></label>
+      <label>Throttle: period (min) <input type="number" min="0" name="throttle_minutes" value="{{ s.get('throttle_minutes') or 0 }}"></label>
+    </div>
+    <p class="hint">0 = no throttle. Alarm, panic and fire are always sent.</p>
+    <div class="two">
+      <label>Zone-fault delay (sec) <input type="number" min="0" name="delay" value="{{ s.get('delay') or 0 }}"></label>
+      <label class="chk" style="align-self:end"><input type="checkbox" name="suppress" {% if not n or s.get('suppress') %}checked{% endif %}> Cancel if zone restores within delay</label>
+    </div>
+  </fieldset>
+
+  <div class="form-actions">
+    <button class="btn-sm primary" type="submit">Save</button>
+    <a class="btn-sm" href="{{ url_for('settings_notifications') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

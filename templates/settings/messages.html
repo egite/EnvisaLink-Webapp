@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Message templates{% endblock %}
+{% block content %}
+<h1>Message templates</h1>
+<p class="note">Available fields: <code>{zone}</code>, <code>{zone_name}</code>,
+<code>{status}</code>, <code>{arm_type}</code>, <code>{partition}</code> (depending on the event).</p>
+<form method="post" class="form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  {% for etype, label, text in rows %}
+    <label>{{ label }}
+      <input type="text" name="msg_{{ etype }}" value="{{ text }}"></label>
+  {% endfor %}
+  <div class="form-actions">
+    <button class="btn-sm primary" type="submit">Save</button>
+    <a class="btn-sm" href="{{ url_for('settings_home') }}">Back</a>
+  </div>
+</form>
+{% endblock %}

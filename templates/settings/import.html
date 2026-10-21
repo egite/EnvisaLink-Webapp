@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Import settings{% endblock %}
+{% block content %}
+<h1>Import settings</h1>
+<p class="note">Upload an AlarmDecoder export (<code>alarmdecoder-export-*.tar.gz</code>). This
+replaces zones, notifications, message templates and stored settings with the archive's
+contents. Non-email notifications are kept and re-exported, but only email sends.</p>
+<form method="post" class="form" enctype="multipart/form-data">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Archive file
+    <input type="file" name="archive" accept=".gz,.tar.gz,application/gzip" required></label>
+  <div class="form-actions">
+    <button class="btn-sm primary" type="submit">Import</button>
+    <a class="btn-sm" href="{{ url_for('settings_home') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

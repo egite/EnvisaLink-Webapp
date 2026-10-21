@@ -1,0 +1,10 @@
+# Secrets and per-install state - never publish these.
+config.toml
+config.toml.bak
+.secret_key
+data/
+
+# Python
+venv/
+__pycache__/
+*.pyc

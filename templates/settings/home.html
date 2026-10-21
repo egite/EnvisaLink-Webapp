@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<h1>Settings</h1>
+<div class="cards">
+  <a class="card-link" href="{{ url_for('settings_notifications') }}">
+    <strong>Notifications</strong>
+    <span>Email alerts: events, zones, time windows, throttle</span>
+  </a>
+  <a class="card-link" href="{{ url_for('settings_messages') }}">
+    <strong>Message templates</strong>
+    <span>Wording of each event's notification</span>
+  </a>
+  <a class="card-link" href="{{ url_for('settings_import') }}">
+    <strong>Import settings</strong>
+    <span>Load an AlarmDecoder export (.tar.gz)</span>
+  </a>
+  <a class="card-link" href="{{ url_for('settings_export') }}">
+    <strong>Export settings</strong>
+    <span>Download an AlarmDecoder-compatible .tar.gz</span>
+  </a>
+</div>
+<p class="note">Connection settings (EnvisaLink host, password, web login, alarm code) live in
+<code>config.toml</code> on the server.</p>
+{% endblock %}

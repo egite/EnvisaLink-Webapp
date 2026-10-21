@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EnvisaLink</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-csrf="{{ csrf }}">
+  <header class="topbar">
+    <span class="brand">EnvisaLink</span>
+    <a class="navlink" href="{{ url_for('settings_home') }}">Settings</a>
+    <span id="conn" class="conn pending">connecting&hellip;</span>
+    <a class="logout" href="{{ url_for('logout') }}">Sign out</a>
+  </header>
+
+  <main>
+    <section id="partition" class="panel state-unknown">
+      <div id="state-label" class="state-label">&mdash;</div>
+      <div id="alpha" class="alpha"></div>
+      <div class="controls">
+        <button class="btn btn-away"   data-action="arm_away">Arm Away</button>
+        <button class="btn btn-stay"   data-action="arm_stay">Arm Stay</button>
+        <button class="btn btn-disarm" data-action="disarm">Disarm</button>
+      </div>
+      <div id="cmd-msg" class="cmd-msg"></div>
+    </section>
+
+    <section class="zones">
+      <h2>Zones</h2>
+      <ul id="zone-list" class="zone-list"></ul>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

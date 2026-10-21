@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Settings{% endblock %} &middot; EnvisaLink</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand">EnvisaLink</span>
+    <a class="navlink" href="{{ url_for('index') }}">Status</a>
+    <a class="navlink" href="{{ url_for('settings_home') }}">Settings</a>
+    <a class="logout" href="{{ url_for('logout') }}" style="margin-left:auto">Sign out</a>
+  </header>
+
+  <main class="settings">
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in msgs %}
+        <div class="flash {{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

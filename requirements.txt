@@ -1,0 +1,4 @@
+pyenvisalink==4.8
+async_timeout        # undeclared dependency of pyenvisalink
+waitress             # pure-python WSGI server (single process = one TPI connection)
+Flask
