@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Connection{% endblock %}
+{% block content %}
+<h1>EnvisaLink connection</h1>
+<p class="note">Saving restarts the app so it reconnects with the new settings (a few seconds).
+The EnvisaLink allows only one client at a time, so the old connection is released first.</p>
+<form method="post" class="form">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+
+  <fieldset>
+    <legend>EnvisaLink</legend>
+    <div class="two">
+      <label>IP address / host
+        <input type="text" name="host" value="{{ c.host }}" placeholder="192.168.1.50" required></label>
+      <label>Port
+        <input type="number" name="port" value="{{ c.port or 4025 }}"></label>
+    </div>
+    <div class="two">
+      <label>Username
+        <input type="text" name="username" value="{{ c.username or 'user' }}" autocomplete="off"></label>
+      <label>EVL version
+        <select name="evl_version">
+          <option value="3" {% if c.evl_version == 3 %}selected{% endif %}>3 (EVL3)</option>
+          <option value="4" {% if c.evl_version == 4 %}selected{% endif %}>4 (EVL4)</option>
+        </select></label>
+    </div>
+    <label>Password
+      <input type="password" name="password" value="" placeholder="unchanged - type to set a new one" autocomplete="new-password"></label>
+    <p class="hint">Must be the EnvisaLink's local password, changed from the default <code>user</code>
+      (EVL3 max 6 chars). If it's still the default, the EnvisaLink firewall blocks all connections.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Panel</legend>
+    <div class="two">
+      <label>Arm / disarm code
+        <input type="text" name="code" value="{{ c.code }}" autocomplete="off"></label>
+      <label>Number of zones
+        <input type="number" name="num_zones" value="{{ c.num_zones or 0 }}"></label>
+    </div>
+  </fieldset>
+
+  <div class="form-actions">
+    <button class="btn-sm primary" type="submit">Save &amp; reconnect</button>
+    <a class="btn-sm" href="{{ url_for('settings_home') }}">Cancel</a>
+  </div>
+</form>
+{% endblock %}

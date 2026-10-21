@@ -22,6 +22,10 @@ import events
 FILES = ("settings.json", "zones.json", "notifications.json",
          "notification_settings.json", "notification_messages.json")
 
+# EnvisaLink connection settings. Kept OUT of FILES on purpose: it holds the
+# EnvisaLink password, so it must never go into a shareable export archive.
+CONN_FILE = "connection.json"
+
 EMAIL = 0  # notification type (matches AlarmDecoder)
 
 
@@ -66,6 +70,7 @@ class Store(object):
         self.zones = {}             # zone_id(int) -> {"name", "description"}
         self.messages = {}          # event_type(int) -> text
         self.notifications = []     # [{id, description, type, enabled, settings:{}}]
+        self.connection = {}        # EnvisaLink connection overrides (not exported)
         self._next_notif_id = 1
 
     # ---- load / save --------------------------------------------------------
@@ -77,10 +82,17 @@ class Store(object):
                 path = os.path.join(self.data_dir, name)
                 tables[name] = _read_json(path) if os.path.exists(path) else []
             self.load_tables(tables)
+            cpath = os.path.join(self.data_dir, CONN_FILE)
+            self.connection = _read_json(cpath) if os.path.exists(cpath) else {}
             if not self.messages:
                 self.seed_default_messages()
             self.save()
             return self
+
+    def save_connection(self):
+        with self._lock:
+            os.makedirs(self.data_dir, exist_ok=True)
+            _write_json(os.path.join(self.data_dir, CONN_FILE), self.connection)
 
     def save(self):
         with self._lock:

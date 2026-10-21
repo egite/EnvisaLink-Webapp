@@ -47,6 +47,40 @@ class EVLPanel(object):
         self._evq = queue.Queue()
         self._booted = False
 
+        self.conn = self._conn_dict()
+
+    def _conn_dict(self):
+        """Merge config.toml defaults with editable store.connection overrides."""
+        evl = self.cfg.get("envisalink", {})
+        alarm = self.cfg.get("alarm", {})
+        c = {
+            "host": evl.get("host", ""),
+            "port": evl.get("port", 4025),
+            "username": evl.get("username", "user"),
+            "password": evl.get("password", ""),
+            "panel_type": evl.get("panel_type", "DSC"),
+            "evl_version": evl.get("evl_version", 3),
+            "keepalive_interval": evl.get("keepalive_interval", 30),
+            "zone_timer_interval": evl.get("zone_timer_interval", 20),
+            "code": alarm.get("code", ""),
+            "num_zones": alarm.get("num_zones", 0),
+            "num_partitions": alarm.get("num_partitions", 1),
+        }
+        if self.store is not None:
+            for k, v in getattr(self.store, "connection", {}).items():
+                if v not in (None, ""):
+                    c[k] = v
+        for k in ("port", "evl_version", "keepalive_interval",
+                  "zone_timer_interval", "num_zones", "num_partitions"):
+            try:
+                c[k] = int(c[k])
+            except (TypeError, ValueError):
+                c[k] = 0
+        if c["num_partitions"] < 1:
+            c["num_partitions"] = 1
+        c["code"] = str(c["code"])
+        return c
+
     # ---- lifecycle ----------------------------------------------------------
 
     def start(self):
@@ -60,16 +94,17 @@ class EVLPanel(object):
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
 
-        evl = self.cfg["envisalink"]
+        self.conn = self._conn_dict()
+        c = self.conn
         panel = EnvisalinkAlarmPanel(
-            host=evl["host"],
-            port=int(evl.get("port", 4025)),
-            panelType=evl.get("panel_type", "DSC"),
-            envisalinkVersion=int(evl.get("evl_version", 3)),
-            userName=evl.get("username", "user"),
-            password=evl["password"],
-            keepAliveInterval=int(evl.get("keepalive_interval", 30)),
-            zoneTimerInterval=int(evl.get("zone_timer_interval", 20)),
+            host=c["host"],
+            port=c["port"],
+            panelType=c["panel_type"],
+            envisalinkVersion=c["evl_version"],
+            userName=c["username"],
+            password=c["password"],
+            keepAliveInterval=c["keepalive_interval"],
+            zoneTimerInterval=c["zone_timer_interval"],
             eventLoop=self._loop,
         )
         panel.callback_login_success = self._on_login_success
@@ -144,8 +179,8 @@ class EVLPanel(object):
         return "Zone %d" % n
 
     def get_state(self):
-        num_zones = int(self.cfg["alarm"].get("num_zones", 0))
-        num_parts = int(self.cfg["alarm"].get("num_partitions", 1))
+        num_zones = int(self.conn.get("num_zones", 0))
+        num_parts = int(self.conn.get("num_partitions", 1))
         if self.store is not None and self.store.zones:
             num_zones = max(num_zones, max(self.store.zones))
 
@@ -214,4 +249,4 @@ class EVLPanel(object):
         self._schedule(self._panel.keypresses_to_partition, int(partition), str(keys)[:6])
 
     def _code(self):
-        return str(self.cfg["alarm"].get("code", ""))
+        return str(self.conn.get("code", ""))

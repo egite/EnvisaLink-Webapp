@@ -3,6 +3,10 @@
 {% block content %}
 <h1>Settings</h1>
 <div class="cards">
+  <a class="card-link" href="{{ url_for('settings_connection') }}">
+    <strong>Connection</strong>
+    <span>EnvisaLink IP, port, username, password, EVL version, code</span>
+  </a>
   <a class="card-link" href="{{ url_for('settings_notifications') }}">
     <strong>Notifications</strong>
     <span>Email alerts: events, zones, time windows, throttle</span>
@@ -20,6 +24,6 @@
     <span>Download an AlarmDecoder-compatible .tar.gz</span>
   </a>
 </div>
-<p class="note">Connection settings (EnvisaLink host, password, web login, alarm code) live in
-<code>config.toml</code> on the server.</p>
+<p class="note">The web login password and listen host/port live in <code>config.toml</code> on
+the server; everything else is editable here.</p>
 {% endblock %}

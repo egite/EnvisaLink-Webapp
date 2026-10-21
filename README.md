@@ -33,11 +33,17 @@ Config is TOML, read with Python 3.11+'s built-in `tomllib` — no extra depende
 
 ## Set up
 
-1. Edit `config.toml`:
+1. Edit `config.toml` for the initial values:
    - `[envisalink] host`, `password`, `evl_version` (3 or 4)
    - `[alarm] code` (arm/disarm code), `num_zones`
    - `[web] login_password` (password for this web UI)
    - `[[zones]]` blocks to name your zones
+
+   After first run you can also change the EnvisaLink host, port, username,
+   password, EVL version, code and zone count in the browser at **Settings →
+   Connection** (it saves to `data/connection.json`, which overrides `config.toml`,
+   and restarts to reconnect). The `[web]` login and listen host/port stay in
+   `config.toml`.
 2. Run it:
    ```bash
    ./run.sh

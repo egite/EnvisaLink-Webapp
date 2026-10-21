@@ -11,6 +11,9 @@ import json
 import logging
 import os
 import secrets
+import sys
+import threading
+import time
 import tomllib
 
 from flask import (Flask, Response, flash, jsonify, redirect, render_template,
@@ -177,6 +180,50 @@ def _zone_choices():
 @login_required
 def settings_home():
     return render_template("settings/home.html", csrf=session.get("csrf"))
+
+
+def _restart_soon():
+    """Re-exec the process so the EnvisaLink reconnects with new settings.
+
+    A restart (rather than a live reconnect) guarantees the old TPI socket is
+    released first - the EnvisaLink allows only one client.
+    """
+    def _do():
+        time.sleep(1.2)
+        os.execv(sys.executable, [sys.executable] + sys.argv)
+    threading.Thread(target=_do, daemon=True).start()
+
+
+CONN_INT_FIELDS = ["port", "evl_version", "num_zones"]
+CONN_TEXT_FIELDS = ["host", "username", "code"]
+
+
+@app.route("/settings/connection", methods=["GET", "POST"])
+@login_required
+def settings_connection():
+    if request.method == "POST":
+        if not check_csrf():
+            flash("Bad CSRF token.", "error")
+            return redirect(request.url)
+        updates = {}
+        for f in CONN_TEXT_FIELDS:
+            updates[f] = request.form.get(f, "").strip()
+        for f in CONN_INT_FIELDS:
+            try:
+                updates[f] = int(request.form.get(f) or 0)
+            except ValueError:
+                updates[f] = 0
+        # Only change the password when a new one is typed (blank = keep current).
+        pw = request.form.get("password", "")
+        if pw:
+            updates["password"] = pw
+        store.connection.update(updates)
+        store.save_connection()
+        flash("Connection settings saved - reconnecting (give it a few seconds).", "success")
+        _restart_soon()
+        return redirect(url_for("index"))
+
+    return render_template("settings/connection.html", c=panel.conn, csrf=session.get("csrf"))
 
 
 @app.route("/settings/notifications")
