@@ -121,6 +121,12 @@ def index():
     return render_template("index.html", csrf=session.get("csrf"))
 
 
+@app.route("/keypad")
+@login_required
+def keypad():
+    return render_template("keypad.html", csrf=session.get("csrf"))
+
+
 @app.route("/api/state")
 @login_required
 def api_state():
@@ -134,6 +140,7 @@ COMMANDS = {
     "disarm": lambda part, body: panel.disarm(part),
     "panic": lambda part, body: panel.panic(body.get("panic_type", "Police")),
     "bypass": lambda part, body: panel.toggle_bypass(int(body.get("zone", 0))),
+    "keys": lambda part, body: panel.send_keys(body.get("keys", ""), part),
 }
 
 

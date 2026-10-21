@@ -209,5 +209,9 @@ class EVLPanel(object):
     def toggle_bypass(self, zone):
         self._schedule(self._panel.toggle_zone_bypass, int(zone))
 
+    def send_keys(self, keys, partition=1):
+        # keypresses_to_partition(partitionNumber, keypresses); max 6 per call.
+        self._schedule(self._panel.keypresses_to_partition, int(partition), str(keys)[:6])
+
     def _code(self):
         return str(self.cfg["alarm"].get("code", ""))

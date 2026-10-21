@@ -31,10 +31,13 @@ function badges(s) {
 
 function setConn(state) {
   var el = document.getElementById("conn");
+  if (!el) return;
+  // A rejected password is a real error; a timeout just means it hasn't
+  // reached the panel yet and is retrying (pyenvisalink reconnects every 30s).
   if (state.login_state === "failed") { el.className = "conn down"; el.textContent = "login failed"; return; }
-  if (state.login_state === "timeout") { el.className = "conn down"; el.textContent = "login timeout"; return; }
+  if (state.login_state === "timeout") { el.className = "conn pending"; el.textContent = "reconnecting…"; return; }
   if (!state.connected) { el.className = "conn pending"; el.textContent = "connecting…"; return; }
-  if (state.stale_seconds != null && state.stale_seconds > 90) { el.className = "conn down"; el.textContent = "no data"; return; }
+  if (state.stale_seconds != null && state.stale_seconds > 90) { el.className = "conn pending"; el.textContent = "reconnecting…"; return; }
   el.className = "conn ok"; el.textContent = "connected";
 }
 

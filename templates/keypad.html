@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Keypad &middot; EnvisaLink</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-csrf="{{ csrf }}">
+  <header class="topbar">
+    <span class="brand">EnvisaLink</span>
+    <a class="navlink" href="{{ url_for('index') }}">Status</a>
+    <a class="navlink" href="{{ url_for('settings_home') }}">Settings</a>
+    <span id="conn" class="conn pending">connecting&hellip;</span>
+    <a class="logout" href="{{ url_for('logout') }}">Sign out</a>
+  </header>
+
+  <main class="keypad-main">
+    <div class="lcd">
+      <div id="lcd-line" class="lcd-line">&nbsp;</div>
+    </div>
+
+    <div class="leds">
+      <span class="led" data-led="ready"><i></i>Ready</span>
+      <span class="led" data-led="armed"><i></i>Armed</span>
+      <span class="led" data-led="memory"><i></i>Memory</span>
+      <span class="led" data-led="bypass"><i></i>Bypass</span>
+      <span class="led" data-led="trouble"><i></i>Trouble</span>
+      <span class="led" data-led="fire"><i></i>Fire</span>
+      <span class="led" data-led="chime"><i></i>Chime</span>
+      <span class="led" data-led="ac"><i></i>AC</span>
+    </div>
+
+    <div class="keypad">
+      <button class="key" data-key="1">1</button>
+      <button class="key" data-key="2">2</button>
+      <button class="key" data-key="3">3</button>
+      <button class="key" data-key="4">4</button>
+      <button class="key" data-key="5">5</button>
+      <button class="key" data-key="6">6</button>
+      <button class="key" data-key="7">7</button>
+      <button class="key" data-key="8">8</button>
+      <button class="key" data-key="9">9</button>
+      <button class="key" data-key="*">&lowast;</button>
+      <button class="key" data-key="0">0</button>
+      <button class="key" data-key="#">#</button>
+    </div>
+    <div id="kp-msg" class="cmd-msg"></div>
+
+    <p class="note" style="text-align:center">Keys go straight to the panel &mdash; type your code to arm or
+      disarm, or use <code>*</code> sequences (e.g. <code>*72</code>) just like the physical keypad.</p>
+  </main>
+
+  <script src="{{ url_for('static', filename='keypad.js') }}"></script>
+</body>
+</html>

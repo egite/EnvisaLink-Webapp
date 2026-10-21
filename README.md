@@ -48,6 +48,32 @@ Config is TOML, read with Python 3.11+'s built-in `tomllib` — no extra depende
 
 Run at boot with the systemd unit (see the header of `envisalink-webapp.service`).
 
+## Keypad
+
+**Keypad** (top nav) is a virtual keypad + display, like the original's:
+
+- A green **LCD** line shows what the panel reports (`Ready`, `Exit Delay In Progress`,
+  `Armed Away`, `Alarm`, …), falling back to a derived status if the panel sends none.
+- An **LED row** (Ready, Armed, Memory, Bypass, Trouble, Fire, Chime, AC) tracks the
+  panel's keypad lights.
+- A **numeric keypad** (1-9, `*`, 0, `#`) sends keystrokes straight to the panel - type
+  your code to arm/disarm, or use `*` sequences (`*72`, etc.) just like the physical
+  keypad. Your computer's number keys work too.
+
+## Connection status / "login timeout"
+
+The badge top-right shows **connected**, **reconnecting…**, or **login failed**:
+
+- **login failed** = the EnvisaLink rejected the password. Fix the password in `config.toml`.
+- **reconnecting…** = it can't complete the TPI login yet and is retrying every ~30s
+  (the app reconnects automatically). The usual causes, in order:
+  1. The EnvisaLink's local password is still the default `user` - its firewall then
+     blocks all TPI clients. Change it (4+ chars; EVL3 max 6) and set it in `config.toml`.
+  2. Wrong `host`, `port`, or `evl_version` in `config.toml`.
+  3. Another TPI client is already connected (only one is allowed at a time).
+
+Verify the EnvisaLink itself is reachable by opening its own web page at `http://<host>`.
+
 ## Notifications (email)
 
 **Settings → Notifications** configures email alerts with the same options as the
@@ -105,8 +131,9 @@ home screen for an app-like shortcut.
 
 Does: live partition state (ready / armed away / stay / night / exit+entry delay /
 alarm), keypad alpha line, trouble/AC/fire/battery badges, per-zone open/alarm/
-bypass, arm-away / arm-stay / disarm, email notifications (with throttle), and
-AlarmDecoder-compatible import/export. Panic and zone-bypass endpoints exist in the API.
+bypass, arm-away / arm-stay / disarm, a virtual keypad (LCD + LEDs + keystrokes to the
+panel), email notifications (with throttle), and AlarmDecoder-compatible import/export.
+Panic and zone-bypass endpoints exist in the API.
 
 Not yet: non-email notification backends (preserved by import/export but not sent),
 multi-user accounts, event history, multiple partitions in the UI (the API carries
