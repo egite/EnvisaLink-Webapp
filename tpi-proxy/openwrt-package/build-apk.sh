@@ -1,16 +1,20 @@
 #!/bin/sh
-# Build OpenWrt apk-v3 packages (for apk-based OpenWrt, 24.10 / 25.12+), using
+# Build the OpenWrt apk-v3 package (for apk-based OpenWrt, 24.10 / 25.12+), using
 # apk-tools 3's `apk mkpkg`. Produces, in dist/:
-#   tpi-proxy-<ver>.apk
-#   luci-app-envisalink-<ver>.apk
+#   luci-app-envisalink-<ver>.apk   - SELF-CONTAINED: the proxy, its service, the
+#                                     UCI config AND the Services -> Envisalink UI,
+#                                     in one package.
 #
-# These are the packages to upload via LuCI (System -> Software -> Upload Package)
-# or install with `apk add --allow-untrusted <file>.apk`. Installing the luci-app
-# pulls in tpi-proxy and the python3 deps automatically.
+# It is a single upload on purpose. Its dependencies (python3-light, python3-asyncio,
+# python3-logging, luci-base) are all in the OpenWrt feeds, so `apk add` resolves them
+# automatically - no ordering, no "tpi-proxy: no such package" (the proxy files ship
+# inside this package rather than as a separate feed-less dependency).
+#
+# These are what you upload via LuCI (System -> Software -> Upload Package) or install
+# with `apk add --allow-untrusted <file>.apk`.
 #
 # Requirements (build host, not the router):
 #   - apk-tools 3 with mkpkg. Set APK=/path/to/apk if it's not in PATH.
-#     (Build it from https://gitlab.alpinelinux.org/alpine/apk-tools with meson.)
 #   - fakeroot (so packaged files are owned by root:root).
 set -e
 
@@ -20,9 +24,8 @@ SRC="$HERE/.."
 LA="$HERE/luci-app/files"
 OUT="$HERE/dist"
 APK="${APK:-apk}"
-# Sign with this key if present, so the packages install via LuCI's plain `apk add`
-# (which omits --allow-untrusted) once the matching public key is trusted on the
-# router. The private key is git-ignored; the .pub is committed and distributed.
+# Sign with this key if present, so the package installs via LuCI's plain `apk add`
+# (which omits --allow-untrusted) once the matching public key is trusted on the router.
 KEY="${SIGN_KEY:-$HERE/keys/envisalink-pkg.rsa}"
 mkdir -p "$OUT"
 
@@ -31,52 +34,31 @@ command -v fakeroot >/dev/null 2>&1 || { echo "ERROR: fakeroot not found"; exit 
 
 MAINT="egite <139096069+egite@users.noreply.github.com>"
 
-# ---- tpi-proxy ----
 T=$(mktemp -d)
-fakeroot sh -s "$T" "$SRC" "$HERE" "$APK" "$OUT" "$VERSION" "$MAINT" "$KEY" <<'EOS'
+fakeroot sh -s "$T" "$SRC" "$HERE" "$LA" "$APK" "$OUT" "$VERSION" "$MAINT" "$KEY" <<'EOS'
 set -e
-T="$1"; SRC="$2"; HERE="$3"; APK="$4"; OUT="$5"; VERSION="$6"; MAINT="$7"; KEY="$8"
+T="$1"; SRC="$2"; HERE="$3"; LA="$4"; APK="$5"; OUT="$6"; VERSION="$7"; MAINT="$8"; KEY="$9"
 SIGN=""; [ -n "$KEY" ] && [ -f "$KEY" ] && SIGN="--sign-key $KEY"
+
+# proxy + service + config
 install -d -m0755 "$T/root/usr/bin" "$T/root/etc/init.d" "$T/root/etc/config"
 install -m0755 "$SRC/tpi_proxy.py"       "$T/root/usr/bin/tpi_proxy.py"
 install -m0755 "$SRC/evl-tpi-proxy.init" "$T/root/etc/init.d/evl-tpi-proxy"
 install -m0600 "$HERE/config.envisalink" "$T/root/etc/config/envisalink"
-chown -R root:root "$T/root"
-"$APK" mkpkg \
-	--info "name:tpi-proxy" \
-	--info "version:$VERSION" \
-	--info "arch:noarch" \
-	--info "license:MIT" \
-	--info "maintainer:$MAINT" \
-	--info "description:EnvisaLink TPI multiplexing proxy" \
-	--info "depends:python3-light python3-asyncio python3-logging" \
-	--script "post-install:$HERE/postinst" \
-	$SIGN \
-	--files "$T/root" \
-	--output "$OUT/tpi-proxy-$VERSION.apk"
-EOS
-rm -rf "$T"
-echo "built: $OUT/tpi-proxy-$VERSION.apk"
-
-# ---- luci-app-envisalink ----
-T=$(mktemp -d)
-fakeroot sh -s "$T" "$LA" "$HERE" "$APK" "$OUT" "$VERSION" "$MAINT" "$KEY" <<'EOS'
-set -e
-T="$1"; LA="$2"; HERE="$3"; APK="$4"; OUT="$5"; VERSION="$6"; MAINT="$7"; KEY="$8"
-SIGN=""; [ -n "$KEY" ] && [ -f "$KEY" ] && SIGN="--sign-key $KEY"
-mkdir -p "$T/root"
+# LuCI app (view, menu, acl)
 cp -a "$LA/." "$T/root/"
-find "$T/root" -type d -exec chmod 0755 {} +
-find "$T/root" -type f -exec chmod 0644 {} +
+find "$T/root/www" "$T/root/usr/share" -type d -exec chmod 0755 {} +
+find "$T/root/www" "$T/root/usr/share" -type f -exec chmod 0644 {} +
 chown -R root:root "$T/root"
+
 "$APK" mkpkg \
 	--info "name:luci-app-envisalink" \
 	--info "version:$VERSION" \
 	--info "arch:noarch" \
 	--info "license:MIT" \
 	--info "maintainer:$MAINT" \
-	--info "description:LuCI interface for the EnvisaLink TPI proxy" \
-	--info "depends:luci-base tpi-proxy" \
+	--info "description:EnvisaLink TPI proxy with a Services -> Envisalink LuCI page" \
+	--info "depends:python3-light python3-asyncio python3-logging luci-base" \
 	--script "post-install:$HERE/luci-app/postinst" \
 	$SIGN \
 	--files "$T/root" \

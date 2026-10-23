@@ -1,5 +1,7 @@
 #!/bin/sh
-# Drop LuCI's menu/index caches so the new Services -> Envisalink entry shows.
+# Keep the config private (it holds the EnvisaLink password) and drop LuCI's
+# caches so the Services -> Envisalink entry shows.
+chmod 600 /etc/config/envisalink 2>/dev/null
 rm -f /tmp/luci-indexcache* 2>/dev/null
 rm -rf /tmp/luci-modulecache 2>/dev/null
 exit 0

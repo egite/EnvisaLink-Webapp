@@ -34,13 +34,15 @@ Then point a client at `this-host:4025`. Flags (or the matching env vars
 
 Check with `apk --version` vs `opkg --version` on the router.
 
-## Install on apk-based OpenWrt (24.10 / 25.12+) — .apk packages
+## Install on apk-based OpenWrt (24.10 / 25.12+) — .apk package
 
-Prebuilt, signed, noarch packages are in [`openwrt-package/dist/`](openwrt-package/dist/):
-`luci-app-envisalink-1.0.0.apk` and `tpi-proxy-1.0.0.apk`. Rebuild with
-`openwrt-package/build-apk.sh` (needs apk-tools 3 + fakeroot). They're signed with the
-key in `openwrt-package/keys/` so LuCI's uploader (which runs a plain `apk add`)
-accepts them.
+A single, signed, noarch package is in [`openwrt-package/dist/`](openwrt-package/dist/):
+**`luci-app-envisalink-1.0.0.apk`**. It's self-contained — the proxy, its service, the
+UCI config and the **Services → Envisalink** UI are all inside, and it depends only on
+packages that are in the OpenWrt feeds (`python3-light`, `python3-asyncio`,
+`python3-logging`, `luci-base`). So it's **one upload, no ordering**. Rebuild with
+`openwrt-package/build-apk.sh` (needs apk-tools 3 + fakeroot). It's signed with the key
+in `openwrt-package/keys/` so LuCI's uploader (a plain `apk add`) accepts it.
 
 **One-time: trust the signing key** (apk refuses unsigned uploads). Copy the public key
 to the router's key store — over SSH:
@@ -49,21 +51,16 @@ to the router's key store — over SSH:
 scp openwrt-package/keys/envisalink-pkg.rsa.pub root@ROUTER:/etc/apk/keys/
 ```
 
-**Then, via LuCI** (**System → Software**, with the router online). First **Update
-lists…** so apk can fetch dependencies from the feeds, then **Upload Package…** the two
-`.apk` files **in this order** — the second depends on the first, and `tpi-proxy` isn't
-in any feed, so order matters:
-
-1. `tpi-proxy-1.0.0.apk` — apk pulls in the python3 modules (`python3-light`,
-   `python3-asyncio`, `python3-logging`) from the feeds.
-2. `luci-app-envisalink-1.0.0.apk` — pulls in `luci-base`; `tpi-proxy` is now installed.
+**Then, via LuCI** (**System → Software**, router online): **Update lists…** (so apk can
+fetch the dependencies from the feeds), then **Upload Package…** →
+`luci-app-envisalink-1.0.0.apk`. That installs the proxy, the service and the LuCI page
+and pulls in the dependencies automatically.
 
 Then open **Services → Envisalink**, set the EnvisaLink IP / password / panel type,
 enable, **Save & Apply**, and **Start**.
 
-> **Prefer not to trust a key?** Install over SSH instead, which allows unsigned and
-> takes both files at once (apk orders them): `apk add --allow-untrusted
-> ./tpi-proxy-1.0.0.apk ./luci-app-envisalink-1.0.0.apk` (after copying them to the
+> **Prefer not to trust a key?** Install over SSH instead, which allows unsigned:
+> `apk add --allow-untrusted ./luci-app-envisalink-1.0.0.apk` (after copying it to the
 > router). Or use the installer script below, which needs no package at all.
 
 ## Install on any OpenWrt — installer script (no package)
