@@ -3,6 +3,7 @@ config.toml
 config.toml.bak
 .secret_key
 data/
+tpi-proxy/tpi-proxy.conf
 
 # Python
 venv/

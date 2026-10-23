@@ -1,0 +1,17 @@
+# Copy to /etc/tpi-proxy.conf and edit. chmod 600 - it holds the password.
+# Used by both the OpenWrt init script (sourced) and the systemd unit
+# (EnvironmentFile), so keep it to plain KEY=value lines, no "export".
+
+EVL_HOST=192.168.21.123      # the EnvisaLink's IP
+EVL_PORT=4025
+EVL_PASS=CHANGEME            # the EnvisaLink's local password
+PANEL=honeywell             # honeywell or dsc
+
+LISTEN_HOST=0.0.0.0          # interfaces the proxy listens on
+LISTEN_PORT=4025             # clients (HA, the webapp) connect here
+
+# Password clients must send. Leave unset to require the same as EVL_PASS,
+# so HA/the webapp connect with the password they already use.
+# CLIENT_PASS=CHANGEME
+
+KEEPALIVE=120               # seconds between backstop keepalive polls

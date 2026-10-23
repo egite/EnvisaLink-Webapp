@@ -24,6 +24,11 @@ The EnvisaLink allows only one client at a time, so the old connection is releas
           <option value="4" {% if c.evl_version == 4 %}selected{% endif %}>4 (EVL4)</option>
         </select></label>
     </div>
+    <label>Panel type
+      <select name="panel_type">
+        <option value="DSC" {% if c.panel_type == 'DSC' %}selected{% endif %}>DSC</option>
+        <option value="HONEYWELL" {% if c.panel_type == 'HONEYWELL' %}selected{% endif %}>Honeywell / Vista</option>
+      </select></label>
     <label>Password
       <input type="password" name="password" value="" placeholder="unchanged - type to set a new one" autocomplete="new-password"></label>
     <p class="hint">Must be the EnvisaLink's local password, changed from the default <code>user</code>

@@ -1,0 +1,24 @@
+# systemd unit for running the proxy on a normal Linux host (e.g. the Ubuntu box)
+# instead of an OpenWrt router.
+#
+#   sudo cp tpi_proxy.py /usr/local/bin/tpi_proxy.py
+#   sudo cp tpi-proxy.conf.example /etc/tpi-proxy.conf   # edit it, chmod 600
+#   sudo cp evl-tpi-proxy.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now evl-tpi-proxy
+# Logs: journalctl -u evl-tpi-proxy -f
+
+[Unit]
+Description=EnvisaLink TPI multiplexing proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/tpi-proxy.conf
+ExecStart=/usr/bin/python3 /usr/local/bin/tpi_proxy.py
+Restart=on-failure
+RestartSec=5
+DynamicUser=yes
+
+[Install]
+WantedBy=multi-user.target

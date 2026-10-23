@@ -195,7 +195,7 @@ def _restart_soon():
 
 
 CONN_INT_FIELDS = ["port", "evl_version", "num_zones"]
-CONN_TEXT_FIELDS = ["host", "username", "code"]
+CONN_TEXT_FIELDS = ["host", "username", "code", "panel_type"]
 
 
 @app.route("/settings/connection", methods=["GET", "POST"])
