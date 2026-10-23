@@ -168,9 +168,13 @@ main.settings h1 { font-size: 1.4rem; margin: 6px 0 16px; }
 
 .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .key {
-  padding: 22px 0; font-size: 1.5rem; font-weight: 600; border-radius: 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 14px 0; font-size: 1.5rem; font-weight: 600; border-radius: 14px;
   border: 1px solid var(--line); background: var(--panel-2); color: var(--text); cursor: pointer;
   -webkit-user-select: none; user-select: none;
 }
 .key:hover { border-color: var(--blue); }
+.key-num { line-height: 1.1; }
+.key-fn { font-size: .62rem; font-weight: 700; letter-spacing: .08em; color: var(--muted); line-height: 1; }
+.key.pressed .key-fn { color: #fff; }
 .key.pressed { background: var(--blue); color: #fff; transform: translateY(1px); }
