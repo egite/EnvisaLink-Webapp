@@ -25,7 +25,34 @@ Then point a client at `this-host:4025`. Flags (or the matching env vars
 `EVL_HOST`, `EVL_PASS`, `PANEL`, `LISTEN_HOST`, `LISTEN_PORT`, `CLIENT_PASS`,
 `KEEPALIVE`): `--help` lists them. `--panel` is `honeywell` or `dsc`.
 
-## Install on OpenWrt — package + LuCI menu (recommended)
+## Which OpenWrt? apk vs opkg
+
+- **OpenWrt 24.10 and newer use `apk`.** The `.ipk` packages here are the opkg
+  format and `apk` rejects them ("file format is invalid"). On these builds, use the
+  **installer script** below.
+- **OpenWrt 23.05 and older use `opkg`.** Use the `.ipk` packages (next section).
+
+Check with `apk --version` vs `opkg --version` on the router.
+
+## Install on apk-based OpenWrt (24.10+) — installer script
+
+[`openwrt-package/dist/install-openwrt.sh`](openwrt-package/dist/) is a single,
+self-contained script (regenerate with `openwrt-package/build-installer.sh`). It works
+on both apk and opkg: it installs the python3 dependencies, drops the proxy, init
+script, UCI config and the LuCI app into place, enables the service and refreshes
+LuCI. It does **not** overwrite an existing `/etc/config/envisalink`.
+
+Copy it to the router and run it (SSH, or LuCI's terminal if installed):
+
+```sh
+sh install-openwrt.sh
+```
+
+Then open **Services → Envisalink**, set the EnvisaLink IP / password / panel type,
+enable, Save & Apply, and Start. (Or configure over the shell with `uci set
+envisalink.main.…` — the script prints the exact commands.)
+
+## Install on opkg-based OpenWrt (≤23.05) — package + LuCI menu
 
 Two prebuilt, noarch packages are in [`openwrt-package/dist/`](openwrt-package/dist/):
 `tpi-proxy_1.0.0_all.ipk` (the proxy) and `luci-app-envisalink_1.0.0_all.ipk` (a
