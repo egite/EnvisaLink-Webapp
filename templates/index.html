@@ -9,7 +9,6 @@
 <body data-csrf="{{ csrf }}">
   <header class="topbar">
     <span class="brand">EnvisaLink</span>
-    <a class="navlink" href="{{ url_for('keypad') }}">Keypad</a>
     <a class="navlink" href="{{ url_for('event_log') }}">Log</a>
     <a class="navlink" href="{{ url_for('settings_home') }}">Settings</a>
     <span id="conn" class="conn pending">connecting&hellip;</span>
@@ -41,6 +40,28 @@
         </div>
       </div>
       <div id="zone-groups"></div>
+    </section>
+
+    <section class="keypad-section" id="keypad">
+      <h2>Keypad</h2>
+      <div class="keypad">
+        <button class="key" data-key="1"><span class="key-num">1</span><span class="key-fn">OFF</span></button>
+        <button class="key" data-key="2"><span class="key-num">2</span><span class="key-fn">AWAY</span></button>
+        <button class="key" data-key="3"><span class="key-num">3</span><span class="key-fn">STAY</span></button>
+        <button class="key" data-key="4"><span class="key-num">4</span><span class="key-fn">MAX</span></button>
+        <button class="key" data-key="5"><span class="key-num">5</span><span class="key-fn">TEST</span></button>
+        <button class="key" data-key="6"><span class="key-num">6</span><span class="key-fn">BYPASS</span></button>
+        <button class="key" data-key="7"><span class="key-num">7</span><span class="key-fn">INSTANT</span></button>
+        <button class="key" data-key="8"><span class="key-num">8</span><span class="key-fn">CODE</span></button>
+        <button class="key" data-key="9"><span class="key-num">9</span><span class="key-fn">CHIME</span></button>
+        <button class="key" data-key="*"><span class="key-num">&lowast;</span><span class="key-fn">READY</span></button>
+        <button class="key" data-key="0"><span class="key-num">0</span><span class="key-fn">&nbsp;</span></button>
+        <button class="key" data-key="#"><span class="key-num">#</span><span class="key-fn">&nbsp;</span></button>
+      </div>
+      <div id="kp-msg" class="cmd-msg"></div>
+      <p class="note">Keys go straight to the panel &mdash; type your code to arm or disarm, or use
+        <code>*</code> sequences (e.g. <code>*72</code>) just like the physical keypad. Your
+        computer's number keys work too.</p>
     </section>
   </main>
 

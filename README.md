@@ -68,21 +68,17 @@ Run at boot with the systemd unit (see the header of `envisalink-webapp.service`
 - **Clear trouble** sends your alarm code + OFF (Honeywell), which acknowledges troubles
   and clears alarm memory. It's disabled while armed, because code + OFF would disarm.
   It's highlighted when the panel reports a trouble, low battery, AC loss or alarm memory.
-  Also on the Keypad page.
 - Once you sign in you stay signed in on that browser until you sign out or clear its
   cookies.
 
 ## Keypad
 
-**Keypad** (top nav) is a virtual keypad + display, like the original's:
-
-- A green **LCD** line shows what the panel reports (`Ready`, `Exit Delay In Progress`,
-  `Armed Away`, `Alarm`, …), falling back to a derived status if the panel sends none.
-- An **LED row** (Ready, Armed, Memory, Bypass, Trouble, Fire, Chime, AC) tracks the
-  panel's keypad lights.
-- A **numeric keypad** (1-9, `*`, 0, `#`) sends keystrokes straight to the panel - type
-  your code to arm/disarm, or use `*` sequences (`*72`, etc.) just like the physical
-  keypad. Your computer's number keys work too.
+Below the zones on the main page is a virtual **keypad** (1-9, `*`, 0, `#`), each key
+labelled with its Honeywell function (OFF, AWAY, STAY, MAX, TEST, BYPASS, INSTANT, CODE,
+CHIME, READY). Keys go straight to the panel - type your code to arm/disarm, or use `*`
+sequences (`*72`, etc.) just like the physical keypad. Your computer's number keys work
+too. The panel's own display text and trouble/AC/chime badges are in the status banner
+at the top. (The old `/keypad` URL now jumps here.)
 
 ## Log
 
@@ -167,12 +163,12 @@ home screen for an app-like shortcut.
 
 Does: live partition state (ready / armed away / stay / night / exit+entry delay /
 alarm), keypad alpha line, trouble/AC/fire/battery badges, per-zone open/alarm/
-bypass, arm-away / arm-stay / disarm, a virtual keypad (LCD + LEDs + keystrokes to the
-panel), email notifications (with throttle), and AlarmDecoder-compatible import/export.
+bypass, arm-away / arm-stay / disarm, a virtual keypad (keystrokes to the panel), an event
+log, email notifications (with throttle), and AlarmDecoder-compatible import/export.
 Panic and zone-bypass endpoints exist in the API.
 
 Not yet: non-email notification backends (preserved by import/export but not sent),
-multi-user accounts, event history, multiple partitions in the UI (the API carries
+multi-user accounts, multiple partitions in the UI (the API carries
 all partitions; the banner shows partition 1). These are straightforward to add.
 
 ## Security notes

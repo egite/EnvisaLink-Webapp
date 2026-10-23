@@ -222,8 +222,45 @@ function sendCommand(action, extra) {
     .catch(function () { msg.textContent = "Network error."; });
 }
 
-document.querySelectorAll(".btn[data-action]").forEach(function (btn) {
+document.querySelectorAll("button[data-action]").forEach(function (btn) {
   btn.addEventListener("click", function () { sendCommand(btn.getAttribute("data-action")); });
+});
+
+// ---- keypad ----------------------------------------------------------------
+
+function sendKey(k) {
+  var msg = document.getElementById("kp-msg");
+  fetch("/api/command", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF },
+    body: JSON.stringify({ action: "keys", keys: k, partition: PARTITION, csrf: CSRF })
+  })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) {
+      msg.textContent = res.ok ? ("sent " + k) : ("error: " + (res.j.error || "failed"));
+      setTimeout(poll, 300);
+      setTimeout(function () { if (msg.textContent.indexOf("error") !== 0) msg.textContent = ""; }, 2500);
+    })
+    .catch(function () { msg.textContent = "network error"; });
+}
+
+document.querySelectorAll(".key").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    btn.classList.add("pressed");
+    setTimeout(function () { btn.classList.remove("pressed"); }, 120);
+    sendKey(btn.getAttribute("data-key"));
+  });
+});
+
+// physical keyboard support
+document.addEventListener("keydown", function (e) {
+  if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (/^[0-9*#]$/.test(e.key)) {
+    var btn = document.querySelector('.key[data-key="' + e.key + '"]');
+    if (btn) { btn.click(); e.preventDefault(); }
+  }
 });
 
 poll();

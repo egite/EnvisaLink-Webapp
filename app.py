@@ -133,9 +133,9 @@ def index():
 
 
 @app.route("/keypad")
-@login_required
 def keypad():
-    return render_template("keypad.html", csrf=session.get("csrf"))
+    # The keypad now lives on the main page; keep old bookmarks working.
+    return redirect(url_for("index") + "#keypad")
 
 
 LOG_PAGE_SIZE = 100
