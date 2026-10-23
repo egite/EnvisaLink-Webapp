@@ -27,14 +27,42 @@ Then point a client at `this-host:4025`. Flags (or the matching env vars
 
 ## Which OpenWrt? apk vs opkg
 
-- **OpenWrt 24.10 and newer use `apk`.** The `.ipk` packages here are the opkg
-  format and `apk` rejects them ("file format is invalid"). On these builds, use the
-  **installer script** below.
-- **OpenWrt 23.05 and older use `opkg`.** Use the `.ipk` packages (next section).
+- **OpenWrt 24.10 / 25.12 and newer use `apk`.** Use the **`.apk` packages** below.
+  The `.ipk` files are the old opkg format and `apk` rejects them ("file format is
+  invalid").
+- **OpenWrt 23.05 and older use `opkg`.** Use the `.ipk` packages (further down).
 
 Check with `apk --version` vs `opkg --version` on the router.
 
-## Install on apk-based OpenWrt (24.10+) — installer script
+## Install on apk-based OpenWrt (24.10 / 25.12+) — .apk packages
+
+Prebuilt, signed, noarch packages are in [`openwrt-package/dist/`](openwrt-package/dist/):
+`luci-app-envisalink-1.0.0.apk` and `tpi-proxy-1.0.0.apk`. Rebuild with
+`openwrt-package/build-apk.sh` (needs apk-tools 3 + fakeroot). They're signed with the
+key in `openwrt-package/keys/` so LuCI's uploader (which runs a plain `apk add`)
+accepts them.
+
+**One-time: trust the signing key** (apk refuses unsigned uploads). Copy the public key
+to the router's key store — over SSH:
+
+```sh
+scp openwrt-package/keys/envisalink-pkg.rsa.pub root@ROUTER:/etc/apk/keys/
+```
+
+**Then, for this install and every future update, via LuCI:** **System → Software →
+Upload Package…**, choose `luci-app-envisalink-1.0.0.apk`. apk pulls in its
+dependencies automatically — `tpi-proxy` and the python3 modules (`python3-light`,
+`python3-asyncio`, `python3-logging`) — from the feeds, so make sure package lists are
+updated (**Update lists…**) and the router has internet.
+
+Then open **Services → Envisalink**, set the EnvisaLink IP / password / panel type,
+enable, **Save & Apply**, and **Start**.
+
+> **Prefer not to trust a key?** Install over SSH instead, which allows unsigned:
+> `apk add --allow-untrusted ./luci-app-envisalink-1.0.0.apk` (after copying the file
+> to the router). Or use the installer script below, which needs no package at all.
+
+## Install on any OpenWrt — installer script (no package)
 
 [`openwrt-package/dist/install-openwrt.sh`](openwrt-package/dist/) is a single,
 self-contained script (regenerate with `openwrt-package/build-installer.sh`). It works
@@ -49,8 +77,7 @@ sh install-openwrt.sh
 ```
 
 Then open **Services → Envisalink**, set the EnvisaLink IP / password / panel type,
-enable, Save & Apply, and Start. (Or configure over the shell with `uci set
-envisalink.main.…` — the script prints the exact commands.)
+enable, Save & Apply, and Start.
 
 ## Install on opkg-based OpenWrt (≤23.05) — package + LuCI menu
 

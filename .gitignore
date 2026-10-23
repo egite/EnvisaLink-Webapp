@@ -9,3 +9,6 @@ tpi-proxy/tpi-proxy.conf
 venv/
 __pycache__/
 *.pyc
+
+# apk package signing PRIVATE key (keep local; public .pub is committed)
+tpi-proxy/openwrt-package/keys/envisalink-pkg.rsa
