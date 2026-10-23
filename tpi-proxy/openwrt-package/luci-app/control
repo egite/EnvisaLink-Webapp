@@ -1,0 +1,11 @@
+Package: luci-app-envisalink
+Version: @VERSION@
+Architecture: all
+Maintainer: egite <139096069+egite@users.noreply.github.com>
+Section: luci
+Priority: optional
+Depends: luci-base, tpi-proxy
+Description: LuCI interface for the EnvisaLink TPI proxy
+ Adds Services -> Envisalink to configure the TPI proxy, see whether it is
+ running, and start / stop / restart it. Installing this pulls in the proxy
+ (tpi-proxy) and its python3 dependencies automatically.

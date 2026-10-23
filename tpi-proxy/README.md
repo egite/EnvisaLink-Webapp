@@ -25,47 +25,44 @@ Then point a client at `this-host:4025`. Flags (or the matching env vars
 `EVL_HOST`, `EVL_PASS`, `PANEL`, `LISTEN_HOST`, `LISTEN_PORT`, `CLIENT_PASS`,
 `KEEPALIVE`): `--help` lists them. `--panel` is `honeywell` or `dsc`.
 
-## Install on OpenWrt — as a package via LuCI (recommended)
+## Install on OpenWrt — package + LuCI menu (recommended)
 
-A prebuilt, noarch package is in
-[`openwrt-package/dist/tpi-proxy_1.0.0_all.ipk`](openwrt-package/dist/). (Rebuild it
-anytime with `openwrt-package/build-ipk.sh` — it needs only `ar`, `tar` and `sed`,
-no OpenWrt SDK, because the proxy is pure Python.)
+Two prebuilt, noarch packages are in [`openwrt-package/dist/`](openwrt-package/dist/):
+`tpi-proxy_1.0.0_all.ipk` (the proxy) and `luci-app-envisalink_1.0.0_all.ipk` (a
+**Services → Envisalink** page to configure it and start/stop/restart it). Rebuild
+both anytime with `openwrt-package/build-ipk.sh` (needs only `ar`, `tar`, `sed` — no
+OpenWrt SDK).
 
-1. **Install the Python dependencies first** — they aren't in the package, and the
-   router needs internet to fetch them (a few MB of flash; use extroot/USB if tight):
-   ```sh
-   opkg update && opkg install python3-light python3-asyncio python3-logging
-   ```
-   (Or in LuCI: **System → Software → Update lists…**, then install those three.)
-2. In LuCI, **System → Software → Upload Package…**, choose
-   `tpi-proxy_1.0.0_all.ipk`, and install.
-3. **Edit `/etc/tpi-proxy.conf`** — set the EnvisaLink IP, password and
-   `PANEL=honeywell`. It installs with placeholders, mode 600. Easiest over SSH:
-   ```sh
-   vi /etc/tpi-proxy.conf
-   ```
-4. **Enable and start:**
-   ```sh
-   /etc/init.d/evl-tpi-proxy enable
-   /etc/init.d/evl-tpi-proxy start
-   logread -e tpi-proxy
-   ```
+1. **Update the package lists** so opkg can pull dependencies — LuCI: **System →
+   Software → Update lists…**, or `opkg update`.
+2. **Upload `luci-app-envisalink_1.0.0_all.ipk`** in **System → Software → Upload
+   Package…**. opkg automatically installs its dependencies: `tpi-proxy` and the
+   python3 modules (`python3-light`, `python3-asyncio`, `python3-logging`). The
+   router needs internet and a few MB of flash for python3 (use extroot/USB if tight).
+3. Open **Services → Envisalink**, fill in the EnvisaLink **IP**, **password** and
+   **panel type** (Honeywell), tick **Enabled**, and **Save & Apply**.
+4. Use the **Start / Restart** buttons on that page. The status line shows whether
+   it's running. `logread -e tpi-proxy` shows the connection log.
 
-> The package marks `/etc/tpi-proxy.conf` as a conffile, so your settings survive a
-> package upgrade. If LuCI reports unmet dependencies on upload, it's step 1 — install
-> `python3-asyncio` (and `python3-logging`) first.
+> If you'd rather not use LuCI, upload just `tpi-proxy_1.0.0_all.ipk` and configure
+> with UCI: `uci set envisalink.main.evl_host=...`, `uci set envisalink.main.evl_pass=...`,
+> `uci set envisalink.main.panel=honeywell`, `uci commit`, then
+> `/etc/init.d/evl-tpi-proxy enable && /etc/init.d/evl-tpi-proxy start`.
+> `/etc/config/envisalink` is a conffile, so settings survive upgrades. If the python3
+> deps aren't fetched automatically, run step 1 then
+> `opkg install python3-light python3-asyncio python3-logging`.
 
 ## Install on OpenWrt — manual copy (alternative)
 
 ```sh
 opkg update && opkg install python3-light python3-asyncio python3-logging
 # then copy, over scp/ssh:
-#   tpi_proxy.py            -> /usr/bin/tpi_proxy.py
-#   evl-tpi-proxy.init      -> /etc/init.d/evl-tpi-proxy
-#   tpi-proxy.conf.example  -> /etc/tpi-proxy.conf   (then edit, chmod 600)
+#   tpi_proxy.py                        -> /usr/bin/tpi_proxy.py
+#   evl-tpi-proxy.init                  -> /etc/init.d/evl-tpi-proxy
+#   openwrt-package/config.envisalink   -> /etc/config/envisalink   (then edit, chmod 600)
 chmod +x /usr/bin/tpi_proxy.py /etc/init.d/evl-tpi-proxy
-chmod 600 /etc/tpi-proxy.conf
+chmod 600 /etc/config/envisalink
+# set evl_host / evl_pass / panel in /etc/config/envisalink (uci), then:
 /etc/init.d/evl-tpi-proxy enable && /etc/init.d/evl-tpi-proxy start
 logread -e tpi-proxy
 ```

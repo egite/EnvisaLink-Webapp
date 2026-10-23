@@ -1,0 +1,5 @@
+#!/bin/sh
+# Drop LuCI's menu/index caches so the new Services -> Envisalink entry shows.
+rm -f /tmp/luci-indexcache* 2>/dev/null
+rm -rf /tmp/luci-modulecache 2>/dev/null
+exit 0

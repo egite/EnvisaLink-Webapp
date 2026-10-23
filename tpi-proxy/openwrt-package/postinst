@@ -1,4 +1,4 @@
 #!/bin/sh
 # Keep the config private (it holds the EnvisaLink password).
-chmod 600 /etc/tpi-proxy.conf 2>/dev/null
+chmod 600 /etc/config/envisalink 2>/dev/null
 exit 0

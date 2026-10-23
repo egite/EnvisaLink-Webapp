@@ -1,13 +1,10 @@
 #!/bin/sh /etc/rc.common
 # OpenWrt procd init script for the EnvisaLink TPI proxy.
 #
-# Install:
-#   opkg update && opkg install python3-light
-#   cp tpi_proxy.py /usr/bin/tpi_proxy.py && chmod +x /usr/bin/tpi_proxy.py
-#   cp evl-tpi-proxy.init /etc/init.d/evl-tpi-proxy && chmod +x /etc/init.d/evl-tpi-proxy
-#   cp tpi-proxy.conf.example /etc/tpi-proxy.conf    # then edit it (chmod 600)
-#   /etc/init.d/evl-tpi-proxy enable
-#   /etc/init.d/evl-tpi-proxy start
+# Configuration is read from UCI (/etc/config/envisalink), which the LuCI app
+# edits. If that isn't populated it falls back to /etc/tpi-proxy.conf (the
+# manual / systemd-style env file).
+#
 # Logs: logread -e tpi-proxy
 
 USE_PROCD=1
@@ -15,21 +12,50 @@ START=95
 STOP=10
 
 start_service() {
-    [ -f /etc/tpi-proxy.conf ] && . /etc/tpi-proxy.conf
+    local evl_host evl_port evl_pass panel listen_host listen_port client_pass keepalive enabled
+
+    config_load envisalink
+    config_get      evl_host    main evl_host
+    config_get      evl_port    main evl_port    4025
+    config_get      evl_pass    main evl_pass
+    config_get      panel       main panel       honeywell
+    config_get      listen_host main listen_host 0.0.0.0
+    config_get      listen_port main listen_port 4025
+    config_get      client_pass main client_pass
+    config_get      keepalive   main keepalive   120
+    config_get_bool enabled     main enabled     1
+
+    # Fall back to the env file when UCI has no host (non-LuCI installs).
+    if [ -z "$evl_host" ] && [ -f /etc/tpi-proxy.conf ]; then
+        . /etc/tpi-proxy.conf
+        evl_host="${EVL_HOST}"
+        evl_port="${EVL_PORT:-$evl_port}"
+        evl_pass="${EVL_PASS}"
+        panel="${PANEL:-$panel}"
+        listen_host="${LISTEN_HOST:-$listen_host}"
+        listen_port="${LISTEN_PORT:-$listen_port}"
+        client_pass="${CLIENT_PASS:-$client_pass}"
+        keepalive="${KEEPALIVE:-$keepalive}"
+    fi
+
+    [ "$enabled" = "1" ] || { echo "tpi-proxy: disabled in config"; return 0; }
+    if [ -z "$evl_host" ] || [ -z "$evl_pass" ]; then
+        echo "tpi-proxy: set the EnvisaLink IP and password first"
+        return 1
+    fi
 
     procd_open_instance
-    procd_set_param command /usr/bin/python3 /usr/bin/tpi_proxy.py
-    procd_set_param env \
-        EVL_HOST="${EVL_HOST}" \
-        EVL_PORT="${EVL_PORT:-4025}" \
-        EVL_PASS="${EVL_PASS}" \
-        LISTEN_HOST="${LISTEN_HOST:-0.0.0.0}" \
-        LISTEN_PORT="${LISTEN_PORT:-4025}" \
-        CLIENT_PASS="${CLIENT_PASS}" \
-        PANEL="${PANEL:-honeywell}" \
-        KEEPALIVE="${KEEPALIVE:-120}"
+    procd_set_param command /usr/bin/python3 /usr/bin/tpi_proxy.py \
+        --evl-host "$evl_host" --evl-port "$evl_port" --evl-pass "$evl_pass" \
+        --panel "$panel" --listen-host "$listen_host" --listen-port "$listen_port" \
+        --keepalive "$keepalive"
+    [ -n "$client_pass" ] && procd_append_param command --client-pass "$client_pass"
     procd_set_param respawn
     procd_set_param stdout 1
     procd_set_param stderr 1
     procd_close_instance
+}
+
+service_triggers() {
+    procd_add_reload_trigger "envisalink"
 }

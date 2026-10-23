@@ -8,5 +8,5 @@ Depends: python3-light, python3-asyncio, python3-logging
 Description: EnvisaLink TPI multiplexing proxy
  Holds the single TPI connection the EnvisaLink allows and fans it out so
  Home Assistant, a web app and other TPI clients can share it. Pure-Python
- asyncio, no compiled code. Configure /etc/tpi-proxy.conf, then enable and
- start the evl-tpi-proxy service.
+ asyncio, no compiled code. Configure via UCI (/etc/config/envisalink) or the
+ luci-app-envisalink web UI, then enable the evl-tpi-proxy service.

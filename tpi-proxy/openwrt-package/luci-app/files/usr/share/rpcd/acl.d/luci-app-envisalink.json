@@ -1,0 +1,20 @@
+{
+	"luci-app-envisalink": {
+		"description": "Grant access to the EnvisaLink TPI proxy",
+		"read": {
+			"uci": [ "envisalink" ],
+			"ubus": {
+				"service": [ "list" ]
+			},
+			"file": {
+				"/etc/init.d/evl-tpi-proxy": [ "exec" ]
+			}
+		},
+		"write": {
+			"uci": [ "envisalink" ],
+			"file": {
+				"/etc/init.d/evl-tpi-proxy": [ "exec" ]
+			}
+		}
+	}
+}
