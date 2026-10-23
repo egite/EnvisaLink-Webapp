@@ -65,6 +65,10 @@ Run at boot with the systemd unit (see the header of `envisalink-webapp.service`
   when everything is closed you see "All N zones are closed."
 - **Unnamed zones** (off by default) also shows zones that have no name ("Zone 29").
 - These toggles and collapsed groups are remembered per browser.
+- **Bypass** on each zone row bypasses that zone (asks first). Honeywell: sends code +
+  BYPASS + zone number. Only while disarmed; a Vista can't un-bypass a single zone, so
+  bypasses last until the next disarm. The panel doesn't report bypassed zones directly,
+  so the app picks them up from the keypad's `BYPAS NN` text and shows them as BYPASS.
 - **Chime** (left of Clear trouble) shows whether chime is on and toggles it (code +
   CHIME).
 - **Clear trouble** sends your alarm code + OFF (Honeywell), which acknowledges troubles
@@ -167,7 +171,7 @@ Does: live partition state (ready / armed away / stay / night / exit+entry delay
 alarm), keypad alpha line, trouble/AC/fire/battery badges, per-zone open/alarm/
 bypass, arm-away / arm-stay / disarm, a virtual keypad (keystrokes to the panel), an event
 log, email notifications (with throttle), and AlarmDecoder-compatible import/export.
-Panic and zone-bypass endpoints exist in the API.
+A panic endpoint exists in the API.
 
 Not yet: non-email notification backends (preserved by import/export but not sent),
 multi-user accounts, multiple partitions in the UI (the API carries

@@ -19,6 +19,7 @@ import asyncio
 import copy
 import logging
 import queue
+import re
 import threading
 import time
 
@@ -27,6 +28,9 @@ from pyenvisalink import EnvisalinkAlarmPanel
 import events
 
 log = logging.getLogger("evlpanel")
+
+# Honeywell keypad text for a bypassed zone while disarmed, e.g. "BYPAS 08 MAIN ROOM".
+_BYPAS_RE = re.compile(r"^\s*BYPAS\s+(\d{1,3})\b")
 
 # Zone kind from its name, first match wins (order matters: "Overhead Garage
 # Door" is garage, "Office Glassbreak" is glass, not window).
@@ -67,6 +71,10 @@ class EVLPanel(object):
         self.last_update = 0.0
 
         self._prev_state = None
+        # Honeywell's TPI has no per-zone bypass report; we collect bypassed
+        # zones from the keypad's "BYPAS NN" text and forget them when the
+        # panel's bypass light goes off (disarm clears all bypasses).
+        self._bypassed = set()
         self._evq = queue.Queue()
         self._booted = False
 
@@ -168,6 +176,7 @@ class EVLPanel(object):
     def _on_activity(self, *a, **k):
         self.connected = True
         self.last_update = time.time()
+        self._track_bypass()
         try:
             snapshot = self.get_state()
             detected = events.detect(self._prev_state, snapshot)
@@ -176,6 +185,24 @@ class EVLPanel(object):
                 self._queue_events(detected)
         except Exception:
             log.exception("event detection failed")
+
+    def _track_bypass(self):
+        if self._panel is None:
+            return
+        try:
+            parts = self._panel.alarm_state.get("partition", {})
+        except Exception:
+            return
+        any_bypass = False
+        for p in parts.values():
+            st = p.get("status", {})
+            if st.get("armed_bypass") or st.get("bypass"):
+                any_bypass = True
+            m = _BYPAS_RE.match(str(st.get("alpha") or ""))
+            if m:
+                self._bypassed.add(int(m.group(1)))
+        if not any_bypass:
+            self._bypassed.clear()
 
     def _queue_events(self, detected):
         if self.notifier is not None or self.eventlog is not None:
@@ -239,7 +266,7 @@ class EVLPanel(object):
                 "fault": bool(status.get("fault", False)),
                 "alarm": bool(status.get("alarm", False)),
                 "tamper": bool(status.get("tamper", False)),
-                "bypassed": bool(zdata.get("bypassed", False)),
+                "bypassed": bool(zdata.get("bypassed", False)) or n in self._bypassed,
                 "last_fault": zdata.get("last_fault", 0),
             }
 
@@ -275,16 +302,40 @@ class EVLPanel(object):
     def panic(self, panic_type="Police"):
         self._schedule(self._panel.panic_alarm, panic_type)
 
-    def toggle_bypass(self, zone):
-        self._schedule(self._panel.toggle_zone_bypass, int(zone))
+    def _honeywell(self):
+        return str(self.conn.get("panel_type", "")).upper() == "HONEYWELL"
+
+    def _armed(self, partition):
+        s = self.get_state()["partitions"].get(int(partition), {})
+        return bool(s.get("armed_away") or s.get("armed_stay") or s.get("armed_zero_entry_delay"))
+
+    def bypass_zone(self, zone, partition=1):
+        """Bypass one zone. Honeywell: code + BYPASS (6) + zone number.
+
+        Vista panels can't un-bypass a single zone; disarming (code + OFF)
+        clears all bypasses. Refused while armed (the panel rejects it).
+        """
+        zone = int(zone)
+        if zone < 1:
+            raise RuntimeError("bad zone number")
+        if not self._honeywell():
+            self._schedule(self._panel.toggle_zone_bypass, zone)
+            return
+        if not self._code():
+            raise RuntimeError("no alarm code configured")
+        if self._armed(partition):
+            raise RuntimeError("panel is armed - zones can only be bypassed while disarmed")
+        self.send_keys(self._code() + "6" + ("%02d" % zone if zone < 100 else "%03d" % zone), partition)
 
     def send_keys(self, keys, partition=1):
-        # keypresses_to_partition(partitionNumber, keypresses); max 6 per call.
-        self._schedule(self._panel.keypresses_to_partition, int(partition), str(keys)[:6])
+        keys = str(keys)
+        # DSC's keypress command takes at most 6 keys; Honeywell sends one per key.
+        keys = keys[:6] if not self._honeywell() else keys[:16]
+        self._schedule(self._panel.keypresses_to_partition, int(partition), keys)
 
     def toggle_chime(self, partition=1):
         """Honeywell: user code + CHIME (9) toggles chime mode."""
-        if str(self.conn.get("panel_type", "")).upper() != "HONEYWELL":
+        if not self._honeywell():
             raise RuntimeError("chime toggle is only supported on Honeywell panels")
         if not self._code():
             raise RuntimeError("no alarm code configured")
@@ -295,12 +346,11 @@ class EVLPanel(object):
 
         Refused while armed, because code + OFF would also disarm.
         """
-        if str(self.conn.get("panel_type", "")).upper() != "HONEYWELL":
+        if not self._honeywell():
             raise RuntimeError("clear trouble is only supported on Honeywell panels")
         if not self._code():
             raise RuntimeError("no alarm code configured")
-        s = self.get_state()["partitions"].get(int(partition), {})
-        if s.get("armed_away") or s.get("armed_stay") or s.get("armed_zero_entry_delay"):
+        if self._armed(partition):
             raise RuntimeError("panel is armed - disarm first (code + OFF would disarm it)")
         self.send_keys(self._code() + "1", partition)
 

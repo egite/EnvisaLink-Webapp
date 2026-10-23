@@ -220,4 +220,8 @@ main.settings h1 { font-size: 1.4rem; margin: 6px 0 16px; }
 .zone-list li.zone-alarm .zicon { color: var(--red); }
 .zone-list li.zone-bypassed .zicon { color: var(--muted); }
 .zone-bypassed .zone-tag { color: var(--muted); }
+.zone-bypass { padding: 3px 9px; border-radius: 7px; border: 1px solid var(--line); background: transparent;
+  color: var(--muted); font-size: .74rem; cursor: pointer; }
+.zone-bypass:hover { border-color: var(--amber); color: var(--amber); }
+.zone-bypass:disabled { opacity: .4; cursor: default; border-color: var(--line); color: var(--muted); }
 .zones-empty { text-align: center; color: var(--green); padding: 18px; border: 1px dashed var(--line); border-radius: 10px; margin: 0; }

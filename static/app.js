@@ -139,6 +139,8 @@ function renderZones(zones) {
   var wrap = document.getElementById("zone-groups");
   var faultedOnly = optFaulted.checked, showUnnamed = optUnnamed.checked;
   var collapsed = pref("collapsed", {});
+  var ps = (lastState && lastState.partitions && lastState.partitions[PARTITION]) || {};
+  var armed = !!(ps.armed_away || ps.armed_stay || ps.armed_zero_entry_delay);
   var groups = {}, totalShown = 0, totalZones = 0;
 
   Object.keys(zones).sort(function (a, b) { return a - b; }).forEach(function (n) {
@@ -184,6 +186,21 @@ function renderZones(zones) {
       li.innerHTML = icon(z.kind) + '<span class="zone-name"></span><span class="zone-tag"></span>';
       li.querySelector(".zone-name").textContent = z.name;
       li.querySelector(".zone-tag").textContent = st[1];
+      if (!z.bypassed) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "zone-bypass";
+        b.textContent = "Bypass";
+        b.disabled = armed;
+        b.title = armed ? "Disarm first - zones can only be bypassed while disarmed"
+                        : "Bypass this zone until the next disarm";
+        b.addEventListener("click", function () {
+          if (confirm("Bypass " + z.name + "?\n\nIt won't be protected until the system is next disarmed.")) {
+            sendCommand("bypass", { zone: Number(it[0]) });
+          }
+        });
+        li.appendChild(b);
+      }
       ul.appendChild(li);
     });
     sec.appendChild(ul);
