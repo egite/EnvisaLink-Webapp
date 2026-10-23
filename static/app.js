@@ -68,6 +68,10 @@ function render(state) {
     alphaEl.appendChild(wrap);
   }
 
+  var chime = document.getElementById("btn-chime");
+  chime.textContent = ps.chime ? "Chime: on" : "Chime: off";
+  chime.classList.toggle("on", !!ps.chime);
+
   var clr = document.getElementById("btn-clear-trouble");
   var armed = ps.armed_away || ps.armed_stay || ps.armed_zero_entry_delay;
   clr.disabled = !!armed;

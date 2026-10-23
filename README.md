@@ -65,6 +65,8 @@ Run at boot with the systemd unit (see the header of `envisalink-webapp.service`
   when everything is closed you see "All N zones are closed."
 - **Unnamed zones** (off by default) also shows zones that have no name ("Zone 29").
 - These toggles and collapsed groups are remembered per browser.
+- **Chime** (left of Clear trouble) shows whether chime is on and toggles it (code +
+  CHIME).
 - **Clear trouble** sends your alarm code + OFF (Honeywell), which acknowledges troubles
   and clears alarm memory. It's disabled while armed, because code + OFF would disarm.
   It's highlighted when the panel reports a trouble, low battery, AC loss or alarm memory.

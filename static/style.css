@@ -188,6 +188,7 @@ main.settings h1 { font-size: 1.4rem; margin: 6px 0 16px; }
 .btn-quick { padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2);
   color: var(--text); font-size: .88rem; font-weight: 600; cursor: pointer; }
 .btn-quick:hover { border-color: var(--blue); }
+.btn-quick.on { border-color: var(--blue); color: var(--blue); }
 .btn-quick.attention { border-color: var(--amber); color: var(--amber); }
 .btn-quick:disabled { opacity: .45; cursor: default; border-color: var(--line); color: var(--muted); }
 

@@ -206,6 +206,7 @@ COMMANDS = {
     "bypass": lambda part, body: panel.toggle_bypass(int(body.get("zone", 0))),
     "keys": lambda part, body: panel.send_keys(body.get("keys", ""), part),
     "clear_trouble": lambda part, body: panel.clear_trouble(part),
+    "toggle_chime": lambda part, body: panel.toggle_chime(part),
 }
 
 

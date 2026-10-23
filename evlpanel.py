@@ -282,6 +282,14 @@ class EVLPanel(object):
         # keypresses_to_partition(partitionNumber, keypresses); max 6 per call.
         self._schedule(self._panel.keypresses_to_partition, int(partition), str(keys)[:6])
 
+    def toggle_chime(self, partition=1):
+        """Honeywell: user code + CHIME (9) toggles chime mode."""
+        if str(self.conn.get("panel_type", "")).upper() != "HONEYWELL":
+            raise RuntimeError("chime toggle is only supported on Honeywell panels")
+        if not self._code():
+            raise RuntimeError("no alarm code configured")
+        self.send_keys(self._code() + "9", partition)
+
     def clear_trouble(self, partition=1):
         """Honeywell: user code + OFF acknowledges troubles / alarm memory.
 
