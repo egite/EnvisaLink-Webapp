@@ -45,7 +45,7 @@ chown -R root:root "$T/root"
 "$APK" mkpkg \
 	--info "name:tpi-proxy" \
 	--info "version:$VERSION" \
-	--info "arch:all" \
+	--info "arch:noarch" \
 	--info "license:MIT" \
 	--info "maintainer:$MAINT" \
 	--info "description:EnvisaLink TPI multiplexing proxy" \
@@ -72,7 +72,7 @@ chown -R root:root "$T/root"
 "$APK" mkpkg \
 	--info "name:luci-app-envisalink" \
 	--info "version:$VERSION" \
-	--info "arch:all" \
+	--info "arch:noarch" \
 	--info "license:MIT" \
 	--info "maintainer:$MAINT" \
 	--info "description:LuCI interface for the EnvisaLink TPI proxy" \
