@@ -55,7 +55,7 @@ chown -R root:root "$T/root"
 	--info "name:luci-app-envisalink" \
 	--info "version:$VERSION" \
 	--info "arch:noarch" \
-	--info "license:MIT" \
+	--info "license:Unlicense" \
 	--info "maintainer:$MAINT" \
 	--info "description:EnvisaLink TPI proxy with a Services -> Envisalink LuCI page" \
 	--info "depends:python3-light python3-asyncio python3-logging luci-base" \

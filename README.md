@@ -185,3 +185,8 @@ all partitions; the banner shows partition 1). These are straightforward to add.
 - Command POSTs carry a CSRF token tied to your session.
 - `config.toml` holds your alarm code and passwords — keep it readable only by you
   (`chmod 600 config.toml`). The auto-generated `.secret_key` is created `600`.
+
+## License
+
+Public domain, under [The Unlicense](LICENSE): use, copy, modify and distribute it for
+any purpose, with no conditions. No warranty.
