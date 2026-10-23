@@ -2,7 +2,8 @@
 
 // Click-to-sort for <table class="sortable" data-sort-key="...">. Headings with
 // data-sort become buttons; click again to reverse. Text compares naturally
-// ("2 Door" before "10 Window"). The choice is remembered per browser.
+// ("2 Door" before "10 Window"). The choice is remembered per browser; until
+// then a heading marked data-sort-default="asc"|"desc" sets the order.
 (function () {
   var collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
@@ -43,14 +44,23 @@
       th.innerHTML = "";
       th.appendChild(btn);
       btn.addEventListener("click", function () {
-        var cur = load(key);
-        var dir = (cur && cur.col === col) ? -cur.dir : 1;
+        // Reverse the column's current order (saved or default), else ascending.
+        var dir = th.getAttribute("aria-sort") === "ascending" ? -1 : 1;
         save(key, { col: col, dir: dir });
         apply(col, dir);
       });
     });
 
     var saved = load(key);
-    if (saved && heads[saved.col] && heads[saved.col].hasAttribute("data-sort")) apply(saved.col, saved.dir);
+    if (saved && heads[saved.col] && heads[saved.col].hasAttribute("data-sort")) {
+      apply(saved.col, saved.dir);
+    } else {
+      heads.some(function (th, col) {
+        var d = th.getAttribute("data-sort-default");
+        if (d === null) return false;
+        apply(col, d === "desc" ? -1 : 1);
+        return true;
+      });
+    }
   });
 })();

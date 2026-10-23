@@ -28,7 +28,7 @@
 
 {% if notifications %}
 <table class="tbl sortable" data-sort-key="notifications">
-  <thead><tr><th data-sort>Description</th><th data-sort>Type</th><th data-sort>Enabled</th><th></th></tr></thead>
+  <thead><tr><th data-sort data-sort-default="asc">Description</th><th data-sort>Type</th><th data-sort>Enabled</th><th></th></tr></thead>
   <tbody>
   {% for n in notifications %}
     <tr>

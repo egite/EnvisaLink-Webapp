@@ -162,7 +162,8 @@ notifications have them ticked). This covers the EnvisaLink, the proxy or the ne
 going down - though if the network is down the email may not get out either.
 
 Use the **Test** button on the notifications list to send a test message. Click a column
-heading (Description, Type, Enabled) to sort the list; click again to reverse it. Only email
+heading (Description, Type, Enabled) to sort the list; click again to reverse it. It
+starts sorted by Description, A-Z. Only email
 sends in this build; other notification types are preserved by import/export but not
 delivered.
 
