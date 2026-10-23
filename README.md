@@ -66,7 +66,43 @@ Config is TOML, read with Python 3.11+'s built-in `tomllib` — no extra depende
    (default **8080**). Open `http://<this-box-ip>:8080`, log in with the web
    password, and you should see the panel connect.
 
-Run at boot with the systemd unit (see the header of `envisalink-webapp.service`).
+`./run.sh` runs the app in the foreground - it stops when you close the terminal. To
+keep it running, install it as a service (below).
+
+## Run it as a service (start at boot)
+
+[`envisalink-webapp.service`](envisalink-webapp.service) is a systemd unit that starts
+the app at boot and restarts it if it stops.
+
+1. Run `./run.sh` once (then Ctrl+C) so the `venv` exists.
+2. Edit the unit's `User=`, `WorkingDirectory=` and `ExecStart=` to your user and the
+   folder you cloned into. As shipped they're `pi` and
+   `/home/pi/shared/Workspace/Claude/EnvisaLink/envisalink-webapp`.
+3. Stop any copy you started by hand (the service needs the port), then install it:
+   ```bash
+   sudo cp envisalink-webapp.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now envisalink-webapp
+   ```
+4. Check it:
+   ```bash
+   systemctl status envisalink-webapp
+   journalctl -u envisalink-webapp -f
+   ```
+   You should see `EnvisaLink login successful` in the log.
+
+Day to day:
+
+| To | Run |
+|----|-----|
+| Restart (e.g. after `git pull` or editing `config.toml`) | `sudo systemctl restart envisalink-webapp` |
+| Stop / start | `sudo systemctl stop envisalink-webapp` / `start` |
+| Don't start at boot | `sudo systemctl disable envisalink-webapp` |
+| See the log | `journalctl -u envisalink-webapp -f` |
+
+If you edit the unit file, copy it again and run `sudo systemctl daemon-reload` before
+restarting. Changes made in the browser (Settings) don't need a restart - saving the
+Connection page restarts the app by itself.
 
 ## Status page
 

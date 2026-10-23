@@ -1,5 +1,6 @@
 # systemd unit to run the EnvisaLink webapp at boot.
-# Install:
+# Set User, WorkingDirectory and ExecStart below to your user and checkout, and
+# run ./run.sh once first so the venv exists. Then:
 #   sudo cp envisalink-webapp.service /etc/systemd/system/
 #   sudo systemctl daemon-reload
 #   sudo systemctl enable --now envisalink-webapp
@@ -15,7 +16,7 @@ Type=simple
 User=pi
 WorkingDirectory=/home/pi/shared/Workspace/Claude/EnvisaLink/envisalink-webapp
 ExecStart=/home/pi/shared/Workspace/Claude/EnvisaLink/envisalink-webapp/venv/bin/python app.py
-Restart=on-failure
+Restart=always
 RestartSec=5
 
 [Install]
