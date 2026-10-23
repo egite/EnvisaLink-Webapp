@@ -168,20 +168,12 @@ class Notifier(object):
         # A delayed zone-fault may come due after alerts were switched off.
         if not self.store.email_alerts_enabled():
             return
-        text = self._render(etype, kwargs)
+        text = self.store.render_message(etype, kwargs)
         exempt = etype in events.CRITICAL_EVENTS
         try:
             self._send(n, text, exempt=exempt, etype=etype)
         except Exception:
             log.exception("send failed for notification %s", nid)
-
-    def _render(self, etype, kwargs):
-        template = self.store.message_for(etype)
-        fields = collections.defaultdict(str, kwargs)
-        try:
-            return template.format_map(fields)
-        except Exception:
-            return template
 
     # ---- delivery -----------------------------------------------------------
 

@@ -183,3 +183,17 @@ main.settings h1 { font-size: 1.4rem; margin: 6px 0 16px; }
 .key-fn { font-size: .62rem; font-weight: 700; letter-spacing: .08em; color: var(--muted); line-height: 1; }
 .key.pressed .key-fn { color: #fff; }
 .key.pressed { background: var(--blue); color: #fff; transform: translateY(1px); }
+
+/* ---- log page ---- */
+.log-filter, .log-retention { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.log-filter select, .log-filter input, .log-retention input {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font-size: .88rem; }
+.log-filter input { flex: 1 1 160px; }
+.log-retention { margin-top: 22px; padding-top: 14px; border-top: 1px solid var(--line); font-size: .88rem; }
+.log-retention input { width: 5em; margin: 0 4px; }
+.log-retention .hint { margin: 0; }
+.log-tbl td.when { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
+.log-tbl td.etype { white-space: nowrap; }
+.log-tbl tr.ev-3 td, .log-tbl tr.ev-11 td, .log-tbl tr.ev-4 td { color: var(--red); }
+.pager { margin-bottom: 8px; }
+@media (max-width: 560px) { .log-tbl th:nth-child(2), .log-tbl td.etype { display: none; } }

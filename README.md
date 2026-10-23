@@ -66,6 +66,18 @@ Run at boot with the systemd unit (see the header of `envisalink-webapp.service`
   your code to arm/disarm, or use `*` sequences (`*72`, etc.) just like the physical
   keypad. Your computer's number keys work too.
 
+## Log
+
+**Log** (top nav) lists every panel event the app sees - arm/disarm, zone faults and
+restores, alarms, bypass, power, ready/chime changes, (re)connects - newest first, with
+the same wording as the notification message templates. Filter by event type or search
+the text; **Clear log** empties it.
+
+At the bottom of the page, **Keep log history for N days** sets how long entries are
+kept (default 30; 0 = forever). Older entries are removed at startup, once a day, and
+when you change the setting. The log is stored in `data/eventlog.db` and isn't part of
+the settings export.
+
 ## Connection status / "login timeout"
 
 The badge top-right shows **connected**, **reconnecting…**, or **login failed**:

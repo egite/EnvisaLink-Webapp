@@ -30,10 +30,11 @@ log = logging.getLogger("evlpanel")
 
 
 class EVLPanel(object):
-    def __init__(self, config, store=None, notifier=None):
+    def __init__(self, config, store=None, notifier=None, eventlog=None):
         self.cfg = config
         self.store = store
         self.notifier = notifier
+        self.eventlog = eventlog
         self._loop = None
         self._panel = None
         self._thread = None
@@ -84,7 +85,7 @@ class EVLPanel(object):
     # ---- lifecycle ----------------------------------------------------------
 
     def start(self):
-        if self.notifier is not None:
+        if self.notifier is not None or self.eventlog is not None:
             threading.Thread(target=self._event_worker, name="evl-notify", daemon=True).start()
         self._thread = threading.Thread(target=self._run, name="evl-loop", daemon=True)
         self._thread.start()
@@ -155,16 +156,23 @@ class EVLPanel(object):
             log.exception("event detection failed")
 
     def _queue_events(self, detected):
-        if self.notifier is not None:
-            self._evq.put(detected)
+        if self.notifier is not None or self.eventlog is not None:
+            self._evq.put((time.time(), detected))
 
     def _event_worker(self):
         while True:
-            batch = self._evq.get()
-            try:
-                self.notifier.handle_events(batch)
-            except Exception:
-                log.exception("notifier failed")
+            ts, batch = self._evq.get()
+            if self.eventlog is not None:
+                for etype, kwargs in batch:
+                    try:
+                        self.eventlog.add(etype, self.store.render_message(etype, kwargs), ts)
+                    except Exception:
+                        log.exception("event log write failed")
+            if self.notifier is not None:
+                try:
+                    self.notifier.handle_events(batch)
+                except Exception:
+                    log.exception("notifier failed")
 
     # ---- state read ---------------------------------------------------------
 

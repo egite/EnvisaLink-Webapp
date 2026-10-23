@@ -21,6 +21,7 @@ from flask import (Flask, Response, flash, jsonify, redirect, render_template,
 
 import adio
 import events
+from eventlog import EventLog
 from evlpanel import EVLPanel
 from notifier import Notifier
 from store import EMAIL, Store
@@ -69,7 +70,9 @@ if not store.zones and config.get("zones"):
     store.save()
 
 notifier = Notifier(store)
-panel = EVLPanel(config, store=store, notifier=notifier)
+eventlog = EventLog(DATA_DIR)
+eventlog.start_purger(store.log_retention_days)
+panel = EVLPanel(config, store=store, notifier=notifier, eventlog=eventlog)
 panel.start()
 
 
@@ -128,6 +131,59 @@ def index():
 @login_required
 def keypad():
     return render_template("keypad.html", csrf=session.get("csrf"))
+
+
+LOG_PAGE_SIZE = 100
+
+
+@app.route("/log")
+@login_required
+def event_log():
+    etype = request.args.get("type", "")
+    etype = int(etype) if etype.lstrip("-").isdigit() else None
+    text = request.args.get("q", "").strip()
+    page = max(1, request.args.get("page", 1, type=int))
+    rows, total = eventlog.query(etype, text, LOG_PAGE_SIZE, (page - 1) * LOG_PAGE_SIZE)
+    for r in rows:
+        r["when"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(r["ts"]))
+        r["type_name"] = events.EVENT_TYPES.get(r["type"], "event %d" % r["type"])
+    pages = max(1, (total + LOG_PAGE_SIZE - 1) // LOG_PAGE_SIZE)
+    return render_template("log.html", rows=rows, total=total, page=page, pages=pages,
+                           etype=etype, q=text, event_types=[(t, events.EVENT_TYPES[t]) for t in events.SUBSCRIPTIONS],
+                           retention=store.log_retention_days(), csrf=session.get("csrf"))
+
+
+@app.route("/log/retention", methods=["POST"])
+@login_required
+def event_log_retention():
+    if not check_csrf():
+        flash("Bad CSRF token.", "error")
+        return redirect(url_for("event_log"))
+    try:
+        days = int(request.form.get("days", ""))
+        if days < 0:
+            raise ValueError
+    except ValueError:
+        flash("Enter a whole number of days (0 = keep forever).", "error")
+        return redirect(url_for("event_log"))
+    store.set_log_retention_days(days)
+    purged = eventlog.purge(days)
+    flash("Keeping %s of log history.%s" % (
+        "all" if days == 0 else "%d day%s" % (days, "" if days == 1 else "s"),
+        " Removed %d older entr%s." % (purged, "y" if purged == 1 else "ies") if purged else ""),
+        "success")
+    return redirect(url_for("event_log"))
+
+
+@app.route("/log/clear", methods=["POST"])
+@login_required
+def event_log_clear():
+    if not check_csrf():
+        flash("Bad CSRF token.", "error")
+    else:
+        eventlog.clear()
+        flash("Log cleared.", "success")
+    return redirect(url_for("event_log"))
 
 
 @app.route("/api/state")

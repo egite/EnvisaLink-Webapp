@@ -12,6 +12,7 @@ In memory it's exposed in a friendlier form (a notification is a dict with a
 (int_value / string_value columns). Connection + web config stays in config.toml.
 """
 
+import collections
 import json
 import os
 import threading
@@ -200,10 +201,27 @@ class Store(object):
         """Master switch for all email alerts (default on)."""
         return bool(_safe_int(self.settings.get("email_alerts_enabled", 1), 1))
 
+    def log_retention_days(self):
+        """Days of event log history to keep (0 = forever), default 30."""
+        return max(0, _safe_int(self.settings.get("log_retention_days", 30), 30))
+
+    def set_log_retention_days(self, days):
+        with self._lock:
+            self.settings["log_retention_days"] = max(0, int(days))
+            self.save()
+
     def set_email_alerts_enabled(self, on):
         with self._lock:
             self.settings["email_alerts_enabled"] = 1 if on else 0
             self.save()
+
+    def render_message(self, event_type, kwargs):
+        """The event's message template filled in with its kwargs."""
+        template = self.message_for(event_type)
+        try:
+            return template.format_map(collections.defaultdict(str, kwargs))
+        except Exception:
+            return template
 
     def zone_name(self, number):
         z = self.zones.get(int(number))

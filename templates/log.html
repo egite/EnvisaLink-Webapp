@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Log{% endblock %}
+{% block content %}
+<div class="row-between">
+  <h1>Log</h1>
+  <form method="post" action="{{ url_for('event_log_clear') }}"
+        onsubmit="return confirm('Delete every log entry?')">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <button class="btn-sm danger" type="submit">Clear log</button>
+  </form>
+</div>
+
+<form class="log-filter" method="get" action="{{ url_for('event_log') }}">
+  <select name="type">
+    <option value="">All events</option>
+    {% for t, name in event_types %}
+      <option value="{{ t }}" {% if etype == t %}selected{% endif %}>{{ name }}</option>
+    {% endfor %}
+  </select>
+  <input type="text" name="q" value="{{ q }}" placeholder="Search messages">
+  <button class="btn-sm" type="submit">Filter</button>
+  {% if etype is not none or q %}<a class="btn-sm" href="{{ url_for('event_log') }}">Reset</a>{% endif %}
+</form>
+
+{% if rows %}
+<table class="tbl log-tbl">
+  <thead><tr><th>Time</th><th>Event</th><th>Message</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr class="ev-{{ r.type }}">
+      <td class="when">{{ r.when }}</td>
+      <td class="etype">{{ r.type_name }}</td>
+      <td>{{ r.message }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<div class="row-between pager">
+  <span class="note">{{ total }} entr{{ 'y' if total == 1 else 'ies' }}{% if pages > 1 %} &middot; page {{ page }} of {{ pages }}{% endif %}</span>
+  <span>
+    {% if page > 1 %}<a class="btn-sm" href="{{ url_for('event_log', type=etype, q=q or None, page=page - 1) }}">&larr; Newer</a>{% endif %}
+    {% if page < pages %}<a class="btn-sm" href="{{ url_for('event_log', type=etype, q=q or None, page=page + 1) }}">Older &rarr;</a>{% endif %}
+  </span>
+</div>
+{% else %}
+<p class="note">{% if etype is not none or q %}No log entries match.{% else %}No events logged yet. Panel events (arm, disarm, zone faults, alarms, …) show up here as they happen.{% endif %}</p>
+{% endif %}
+
+<form class="log-retention" method="post" action="{{ url_for('event_log_retention') }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Keep log history for
+    <input type="number" name="days" min="0" step="1" value="{{ retention }}"> days
+  </label>
+  <button class="btn-sm" type="submit">Save</button>
+  <span class="hint">0 = keep forever. Older entries are removed daily.</span>
+</form>
+{% endblock %}
