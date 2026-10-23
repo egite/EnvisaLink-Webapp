@@ -25,30 +25,50 @@ Then point a client at `this-host:4025`. Flags (or the matching env vars
 `EVL_HOST`, `EVL_PASS`, `PANEL`, `LISTEN_HOST`, `LISTEN_PORT`, `CLIENT_PASS`,
 `KEEPALIVE`): `--help` lists them. `--panel` is `honeywell` or `dsc`.
 
-## Install on OpenWrt
+## Install on OpenWrt — as a package via LuCI (recommended)
 
-Your router needs room for `python3-light` (a few MB of flash; use extroot/USB on
-small devices, or port the ~250 lines to Lua/C if space is tight).
+A prebuilt, noarch package is in
+[`openwrt-package/dist/tpi-proxy_1.0.0_all.ipk`](openwrt-package/dist/). (Rebuild it
+anytime with `openwrt-package/build-ipk.sh` — it needs only `ar`, `tar` and `sed`,
+no OpenWrt SDK, because the proxy is pure Python.)
+
+1. **Install the Python dependencies first** — they aren't in the package, and the
+   router needs internet to fetch them (a few MB of flash; use extroot/USB if tight):
+   ```sh
+   opkg update && opkg install python3-light python3-asyncio python3-logging
+   ```
+   (Or in LuCI: **System → Software → Update lists…**, then install those three.)
+2. In LuCI, **System → Software → Upload Package…**, choose
+   `tpi-proxy_1.0.0_all.ipk`, and install.
+3. **Edit `/etc/tpi-proxy.conf`** — set the EnvisaLink IP, password and
+   `PANEL=honeywell`. It installs with placeholders, mode 600. Easiest over SSH:
+   ```sh
+   vi /etc/tpi-proxy.conf
+   ```
+4. **Enable and start:**
+   ```sh
+   /etc/init.d/evl-tpi-proxy enable
+   /etc/init.d/evl-tpi-proxy start
+   logread -e tpi-proxy
+   ```
+
+> The package marks `/etc/tpi-proxy.conf` as a conffile, so your settings survive a
+> package upgrade. If LuCI reports unmet dependencies on upload, it's step 1 — install
+> `python3-asyncio` (and `python3-logging`) first.
+
+## Install on OpenWrt — manual copy (alternative)
 
 ```sh
-opkg update && opkg install python3-light
-```
-
-Copy the files onto the router:
-
-```sh
-# from this directory, over scp/ssh:
+opkg update && opkg install python3-light python3-asyncio python3-logging
+# then copy, over scp/ssh:
 #   tpi_proxy.py            -> /usr/bin/tpi_proxy.py
 #   evl-tpi-proxy.init      -> /etc/init.d/evl-tpi-proxy
 #   tpi-proxy.conf.example  -> /etc/tpi-proxy.conf   (then edit, chmod 600)
 chmod +x /usr/bin/tpi_proxy.py /etc/init.d/evl-tpi-proxy
 chmod 600 /etc/tpi-proxy.conf
-/etc/init.d/evl-tpi-proxy enable
-/etc/init.d/evl-tpi-proxy start
+/etc/init.d/evl-tpi-proxy enable && /etc/init.d/evl-tpi-proxy start
 logread -e tpi-proxy
 ```
-
-Edit `/etc/tpi-proxy.conf` with your EnvisaLink IP, password, and `PANEL=honeywell`.
 
 ## Install on a Linux host (e.g. the Ubuntu box)
 
