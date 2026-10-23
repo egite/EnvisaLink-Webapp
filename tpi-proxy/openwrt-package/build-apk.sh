@@ -18,7 +18,7 @@
 #   - fakeroot (so packaged files are owned by root:root).
 set -e
 
-VERSION=1.0.0
+VERSION="${VERSION:-1.0.0}"
 HERE=$(cd "$(dirname "$0")" && pwd)
 SRC="$HERE/.."
 LA="$HERE/luci-app/files"
