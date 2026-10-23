@@ -11,8 +11,9 @@ State changes are diffed into logical events (events.detect) and handed to the
 notifier on a separate worker thread, so slow e-mail sends never block the
 asyncio loop.
 
-The EnvisaLink only accepts ONE TPI client, so there must be exactly one of
-these per process (and the app must run as a single process).
+Each of these holds one TPI connection (the EnvisaLink itself accepts only one
+client unless you put tpi-proxy/ in front of it), so there must be exactly one
+per process, and the app must run as a single process.
 """
 
 import asyncio
@@ -28,6 +29,11 @@ from pyenvisalink import EnvisalinkAlarmPanel
 import events
 
 log = logging.getLogger("evlpanel")
+
+# No message from the panel for this long = not reachable. It normally sends
+# keypad updates every ~10s, and answers our keepalive poll every 30s.
+STALE_SECONDS = 120
+WATCHDOG_INTERVAL = 15
 
 # Honeywell keypad text for a bypassed zone while disarmed, e.g. "BYPAS 08 MAIN ROOM".
 _BYPAS_RE = re.compile(r"^\s*BYPAS\s+(\d{1,3})\b")
@@ -68,7 +74,11 @@ class EVLPanel(object):
 
         self.login_state = "pending"
         self.connected = False
-        self.last_update = 0.0
+        self.last_update = 0.0          # last state change
+        self.last_heard = 0.0           # last message of any kind (heartbeat)
+        self._started = time.time()
+        self._offline_since = None
+        self._offline_alerted = False
 
         self._prev_state = None
         # Honeywell's TPI has no per-zone bypass report; we collect bypassed
@@ -89,7 +99,7 @@ class EVLPanel(object):
             "port": evl.get("port", 4025),
             "username": evl.get("username", "user"),
             "password": evl.get("password", ""),
-            "panel_type": evl.get("panel_type", "DSC"),
+            "panel_type": evl.get("panel_type", "HONEYWELL"),
             "evl_version": evl.get("evl_version", 3),
             "keepalive_interval": evl.get("keepalive_interval", 30),
             "zone_timer_interval": evl.get("zone_timer_interval", 20),
@@ -120,6 +130,7 @@ class EVLPanel(object):
         self._thread = threading.Thread(target=self._run, name="evl-loop", daemon=True)
         self._thread.start()
         self._ready.wait(timeout=5)
+        threading.Thread(target=self._watchdog, name="evl-watchdog", daemon=True).start()
 
     def _run(self):
         self._loop = asyncio.new_event_loop()
@@ -145,6 +156,10 @@ class EVLPanel(object):
         panel.callback_partition_state_change = self._on_activity
         panel.callback_keypad_update = self._on_activity
         panel.callback_realtime_cid_event = self._on_activity
+        # Not state changes, but proof the link is alive.
+        panel.callback_poll_response = self._on_heard
+        panel.callback_command_response = self._on_heard
+        panel.callback_zone_timer_dump = self._on_heard
 
         self._panel = panel
         self._ready.set()
@@ -158,7 +173,7 @@ class EVLPanel(object):
         log.info("EnvisaLink login successful")
         self.login_state = "ok"
         self.connected = True
-        self.last_update = time.time()
+        self.last_update = self.last_heard = time.time()
         if not self._booted:
             self._booted = True
             self._queue_events([(events.BOOT, {})])
@@ -173,9 +188,12 @@ class EVLPanel(object):
         self.login_state = "timeout"
         self.connected = False
 
+    def _on_heard(self, *a, **k):
+        self.last_heard = time.time()
+
     def _on_activity(self, *a, **k):
         self.connected = True
-        self.last_update = time.time()
+        self.last_update = self.last_heard = time.time()
         self._track_bypass()
         try:
             snapshot = self.get_state()
@@ -203,6 +221,46 @@ class EVLPanel(object):
                 self._bypassed.add(int(m.group(1)))
         if not any_bypass:
             self._bypassed.clear()
+
+    # ---- reachability watchdog (own thread) ---------------------------------
+
+    def _offline_reason(self):
+        """None when the panel is reachable, else a short reason."""
+        if self.login_state == "failed":
+            return "login failed - check the EnvisaLink password"
+        client = getattr(self._panel, "_client", None)
+        if self.login_state != "ok" or getattr(client, "_loggedin", True) is False:
+            return "not connected"
+        if time.time() - self.last_heard > STALE_SECONDS:
+            return "no data received"
+        return None
+
+    def _watchdog(self):
+        while True:
+            time.sleep(WATCHDOG_INTERVAL)
+            try:
+                self._check_reachable()
+            except Exception:
+                log.exception("watchdog failed")
+
+    def _check_reachable(self, now=None):
+        now = now or time.time()
+        reason = self._offline_reason()
+        if reason is None:
+            if self._offline_alerted:
+                gone = now - (self._offline_since or now)
+                log.info("panel reachable again after %s", _duration(gone))
+                self._queue_events([(events.PANEL_ONLINE, {"duration": _duration(gone)})])
+            self._offline_since = None
+            self._offline_alerted = False
+            return
+        if self._offline_since is None:
+            self._offline_since = self.last_heard or self._started
+        minutes = self.store.offline_alert_minutes() if self.store is not None else 5
+        if minutes > 0 and not self._offline_alerted and now - self._offline_since >= minutes * 60:
+            self._offline_alerted = True
+            log.warning("panel unreachable for %d+ minutes (%s)", minutes, reason)
+            self._queue_events([(events.PANEL_OFFLINE, {"minutes": minutes, "reason": reason})])
 
     def _queue_events(self, detected):
         if self.notifier is not None or self.eventlog is not None:
@@ -270,9 +328,10 @@ class EVLPanel(object):
                 "last_fault": zdata.get("last_fault", 0),
             }
 
-        stale = (time.time() - self.last_update) if self.last_update else None
+        stale = (time.time() - self.last_heard) if self.last_heard else None
+        client = getattr(self._panel, "_client", None)
         return {
-            "connected": bool(self.connected),
+            "connected": bool(self.connected) and getattr(client, "_loggedin", True) is not False,
             "login_state": self.login_state,
             "last_update": self.last_update,
             "stale_seconds": stale,
@@ -356,3 +415,12 @@ class EVLPanel(object):
 
     def _code(self):
         return str(self.conn.get("code", ""))
+
+
+def _duration(seconds):
+    seconds = int(seconds)
+    if seconds < 90:
+        return "%d seconds" % seconds
+    if seconds < 90 * 60:
+        return "%d minutes" % round(seconds / 60)
+    return "%.1f hours" % (seconds / 3600)

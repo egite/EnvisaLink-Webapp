@@ -1,8 +1,14 @@
 # EnvisaLink webapp
 
-A small, self-contained web UI for a **DSC** alarm panel through an **EnvisaLink**
-(EVL3/EVL4) module. Shows partition state and zones, and arms/disarms from a phone
-or computer. Runs natively on the Ubuntu box — no Docker, no Home Assistant.
+A small, self-contained web UI for a **Honeywell / Ademco Vista** alarm panel through
+an **EnvisaLink** (EVL3/EVL4) module. Shows the panel's status and zones, arms and
+disarms, and has a virtual keypad, an event log and email alerts - from a phone or a
+computer. Runs natively on any Linux box (Python 3.11+) - no Docker, no Home Assistant.
+
+It's built and tested on a Honeywell Vista. `panel_type = "DSC"` connects to DSC
+panels too (pyenvisalink supports both), but the chime and clear-trouble quick keys
+send Honeywell key sequences and are refused on DSC (zone bypass uses pyenvisalink's
+own DSC command), and DSC hasn't been tested.
 
 It's the EnvisaLink counterpart to the AlarmDecoder webapp: a Flask app on top of
 a protocol library ([`pyenvisalink`](https://pypi.org/project/pyenvisalink/),
@@ -13,13 +19,18 @@ the `alarmdecoder` library.
 
 | File | What it is |
 |------|-----------|
-| `app.py` | Flask app: login, status page, JSON state API, command endpoints |
-| `evlpanel.py` | Runs `pyenvisalink` in a background asyncio thread; keeps a state snapshot; schedules commands |
+| `app.py` | Flask app: login, status page, JSON state API, command endpoints, settings pages |
+| `evlpanel.py` | Runs `pyenvisalink` in a background asyncio thread; keeps a state snapshot; schedules commands; watches that the panel is reachable |
+| `events.py` | Event types and the state-diff that turns panel changes into events |
+| `notifier.py` | Email alerts (subscriptions, zone filter, time window, throttle) |
+| `eventlog.py` | The event log (SQLite, `data/eventlog.db`) with retention purge |
+| `store.py`, `adio.py` | Settings store (JSON in `data/`) and AlarmDecoder-format import/export |
 | `config.toml` | Your settings (copied from `config.example.toml`) |
 | `templates/`, `static/` | The web UI (status banner, zones, arm/disarm buttons, live polling) |
 | `requirements.txt` | `pyenvisalink`, `async_timeout`, `Flask`, `waitress` |
 | `run.sh` | Makes the venv, installs deps, runs the app |
 | `envisalink-webapp.service` | systemd unit to run it at boot |
+| `tpi-proxy/` | Optional proxy so several clients (this app, Home Assistant, …) can share the one EnvisaLink connection |
 
 Config is TOML, read with Python 3.11+'s built-in `tomllib` — no extra dependency.
 
@@ -28,13 +39,16 @@ Config is TOML, read with Python 3.11+'s built-in `tomllib` — no extra depende
 1. **Change its local password** from the default `user` to something 4+ chars.
    The TPI firewall on port 4025 blocks all clients until you do. EVL3 max 6 chars.
 2. Give the EnvisaLink a **static IP / DHCP reservation**.
-3. Make sure **nothing else is connected to port 4025** — it allows only one TPI
-   client, and this app holds it.
+3. The EnvisaLink accepts **only one TPI client** on port 4025. If anything else
+   (Home Assistant, another app) also needs it, run the proxy in
+   [`tpi-proxy/`](tpi-proxy/README.md) and point every client, this one included, at
+   the proxy instead.
 
 ## Set up
 
 1. Edit `config.toml` for the initial values:
-   - `[envisalink] host`, `password`, `evl_version` (3 or 4)
+   - `[envisalink] host` (the EnvisaLink, or the proxy), `password`,
+     `panel_type` (`HONEYWELL` or `DSC`), `evl_version` (3 or 4)
    - `[alarm] code` (arm/disarm code), `num_zones`
    - `[web] login_password` (password for this web UI)
    - `[[zones]]` blocks to name your zones
@@ -89,8 +103,14 @@ at the top. (The old `/keypad` URL now jumps here.)
 ## Log
 
 **Log** (top nav) lists every panel event the app sees - arm/disarm, zone faults and
-restores, alarms, bypass, power, ready/chime changes, (re)connects - newest first, with
-the same wording as the notification message templates. Filter by event type or search
+restores, alarms, bypass, power, ready/chime changes, (re)connects, panel offline/online -
+newest first, with the same wording as the notification message templates.
+
+It also records **what was done from the web app, and from where**: sign-ins (and failed
+attempts), arm/disarm, bypass, chime, clear trouble, and settings changes, each with the
+device's IP and type (e.g. `Arm away from the web app (192.168.4.20, iPhone).`). Keypad
+use is logged once per burst as *Keypad used* - never the keys, since they include your
+code. Filter on *web action* to see just these. Filter by event type or search
 the text; **Clear log** empties it.
 
 At the bottom of the page, **Keep log history for N days** sets how long entries are
@@ -102,13 +122,17 @@ the settings export.
 
 The badge top-right shows **connected**, **reconnecting…**, or **login failed**:
 
-- **login failed** = the EnvisaLink rejected the password. Fix the password in `config.toml`.
+- **login failed** = the EnvisaLink rejected the password. Fix it under Settings → Connection.
 - **reconnecting…** = it can't complete the TPI login yet and is retrying every ~30s
   (the app reconnects automatically). The usual causes, in order:
   1. The EnvisaLink's local password is still the default `user` - its firewall then
      blocks all TPI clients. Change it (4+ chars; EVL3 max 6) and set it in `config.toml`.
-  2. Wrong `host`, `port`, or `evl_version` in `config.toml`.
-  3. Another TPI client is already connected (only one is allowed at a time).
+  2. Wrong `host`, `port`, `panel_type` or `evl_version`. A wrong `panel_type` looks
+     exactly like this: Honeywell greets with `Login:`, DSC with a `505` message.
+  3. Another TPI client is already connected straight to the EnvisaLink (only one
+     is allowed - use the proxy to share it).
+
+If the panel stays unreachable, the app can email you - see *Panel offline alert* below.
 
 Verify the EnvisaLink itself is reachable by opening its own web page at `http://<host>`.
 
@@ -126,6 +150,16 @@ original AlarmDecoder webapp:
 - **Zone-fault delay**: wait *N* seconds and skip the email if the zone restores first.
 - **Message templates** (Settings → Message templates) with `{zone}`, `{zone_name}`,
   `{status}`, `{arm_type}` fields.
+
+**Email alerts ON/OFF** at the top of the page turns every alert off at once (the Test
+button still works).
+
+**Panel offline alert**: if the app can't reach the panel - login failing, connection
+dropped, or no data for 2 minutes - for *N* minutes (default 5; 0 = off), it raises a
+*Lost contact with the panel* event, and *Contact with the panel restored* when it's
+back. Both are logged; tick them in a notification to get them by email (new
+notifications have them ticked). This covers the EnvisaLink, the proxy or the network
+going down - though if the network is down the email may not get out either.
 
 Use the **Test** button on the notifications list to send a test message. Only email
 sends in this build; other notification types are preserved by import/export but not
@@ -168,10 +202,11 @@ home screen for an app-like shortcut.
 ## What it does / doesn't do (yet)
 
 Does: live partition state (ready / armed away / stay / night / exit+entry delay /
-alarm), keypad alpha line, trouble/AC/fire/battery badges, per-zone open/alarm/
-bypass, arm-away / arm-stay / disarm, a virtual keypad (keystrokes to the panel), an event
-log, email notifications (with throttle), and AlarmDecoder-compatible import/export.
-A panic endpoint exists in the API.
+alarm), keypad alpha line, trouble/AC/fire/battery badges, zones grouped by type with
+open/alarm/bypass status, arm-away / arm-stay / disarm, quick keys (chime, clear trouble,
+per-zone bypass), a virtual keypad, an event log (panel events and web actions), email
+notifications (with throttle and a panel-offline alert), and AlarmDecoder-compatible
+import/export. A panic endpoint exists in the API.
 
 Not yet: non-email notification backends (preserved by import/export but not sent),
 multi-user accounts, multiple partitions in the UI (the API carries
@@ -182,6 +217,8 @@ all partitions; the banner shows partition 1). These are straightforward to add.
 - One shared web password (plaintext-compared from `config.toml`) plus the alarm
   code held server-side. Fine for a LAN/VPN; harden (hashed users, HTTPS) before
   any public exposure.
+- Once signed in, a browser stays signed in until it signs out or clears cookies.
+  Sign-ins and failed attempts are recorded in the Log with the device's IP.
 - Command POSTs carry a CSRF token tied to your session.
 - `config.toml` holds your alarm code and passwords — keep it readable only by you
   (`chmod 600 config.toml`). The auto-generated `.secret_key` is created `600`.

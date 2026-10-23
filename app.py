@@ -1,8 +1,10 @@
 """
-EnvisaLink webapp - a small Flask UI for a DSC alarm via an EnvisaLink module.
+EnvisaLink webapp - a small Flask UI for a Honeywell/Vista (or DSC) alarm panel
+via an EnvisaLink module.
 
-Single process by design: the EnvisaLink allows only one TPI client, so run this
-with waitress (below) or `python app.py`, NOT under a multi-worker server.
+Single process by design: each process holds one TPI connection (and the
+EnvisaLink itself allows only one, unless you use tpi-proxy/), so run this with
+waitress (below) or `python app.py`, NOT under a multi-worker server.
 """
 
 import functools
@@ -80,6 +82,50 @@ panel = EVLPanel(config, store=store, notifier=notifier, eventlog=eventlog)
 panel.start()
 
 
+# ---- web action log ---------------------------------------------------------
+
+def _device(ua):
+    ua = ua or ""
+    for needle, name in (("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android"),
+                         ("Windows", "Windows"), ("Macintosh", "Mac"), ("CrOS", "ChromeOS"),
+                         ("Linux", "Linux")):
+        if needle in ua:
+            return name
+    return "unknown device"
+
+
+def log_web(action):
+    """Record something done from the web UI, with which device did it."""
+    who = "%s, %s" % (request.remote_addr or "?", _device(request.headers.get("User-Agent")))
+    try:
+        eventlog.add(events.WEB_ACTION,
+                     store.render_message(events.WEB_ACTION, {"action": action, "who": who}))
+    except Exception:
+        log.exception("could not log web action")
+
+
+# Keypad presses are logged once per burst (never the keys - they include the code).
+_KEYPAD_BURST = 60
+_last_keypad = {}
+
+
+def _log_keypad():
+    ip = request.remote_addr or "?"
+    now = time.time()
+    if now - _last_keypad.get(ip, 0) > _KEYPAD_BURST:
+        log_web("Keypad used")
+    _last_keypad[ip] = now
+
+
+def _command_text(action, body):
+    if action == "bypass":
+        zone = int(body.get("zone", 0))
+        return "Bypass zone %d (%s)" % (zone, store.zone_name(zone) or "Zone %d" % zone)
+    return {"arm_away": "Arm away", "arm_stay": "Arm stay", "arm_night": "Arm night",
+            "disarm": "Disarm", "panic": "Panic", "clear_trouble": "Clear trouble",
+            "toggle_chime": "Chime toggle"}.get(action, action)
+
+
 # ---- auth -------------------------------------------------------------------
 
 def login_required(view):
@@ -110,10 +156,12 @@ def login():
             session.permanent = True
             session["authed"] = True
             session["csrf"] = secrets.token_hex(16)
+            log_web("Signed in")
             dest = request.args.get("next") or url_for("index")
             if not dest.startswith("/"):
                 dest = url_for("index")
             return redirect(dest)
+        log_web("Failed sign-in attempt")
         error = "Incorrect password."
     return render_template("login.html", error=error)
 
@@ -154,7 +202,7 @@ def event_log():
         r["type_name"] = events.EVENT_TYPES.get(r["type"], "event %d" % r["type"])
     pages = max(1, (total + LOG_PAGE_SIZE - 1) // LOG_PAGE_SIZE)
     return render_template("log.html", rows=rows, total=total, page=page, pages=pages,
-                           etype=etype, q=text, event_types=[(t, events.EVENT_TYPES[t]) for t in events.SUBSCRIPTIONS],
+                           etype=etype, q=text, event_types=[(t, events.EVENT_TYPES[t]) for t in list(events.SUBSCRIPTIONS) + [events.WEB_ACTION]],
                            retention=store.log_retention_days(), csrf=session.get("csrf"))
 
 
@@ -172,6 +220,7 @@ def event_log_retention():
         flash("Enter a whole number of days (0 = keep forever).", "error")
         return redirect(url_for("event_log"))
     store.set_log_retention_days(days)
+    log_web("Log history set to %d days" % days)
     purged = eventlog.purge(days)
     flash("Keeping %s of log history.%s" % (
         "all" if days == 0 else "%d day%s" % (days, "" if days == 1 else "s"),
@@ -187,6 +236,7 @@ def event_log_clear():
         flash("Bad CSRF token.", "error")
     else:
         eventlog.clear()
+        log_web("Log cleared")
         flash("Log cleared.", "success")
     return redirect(url_for("event_log"))
 
@@ -228,6 +278,10 @@ def api_command():
     except Exception as e:  # noqa: BLE001
         log.exception("command failed")
         return jsonify({"error": str(e)}), 500
+    if action == "keys":
+        _log_keypad()
+    else:
+        log_web(_command_text(action, body))
     return jsonify({"ok": True, "action": action})
 
 
@@ -282,6 +336,7 @@ def settings_connection():
             updates["password"] = pw
         store.connection.update(updates)
         store.save_connection()
+        log_web("Connection settings changed")
         flash("Connection settings saved - reconnecting (give it a few seconds).", "success")
         _restart_soon()
         return redirect(url_for("index"))
@@ -296,7 +351,28 @@ def settings_notifications():
                            notifications=store.notifications,
                            type_names={EMAIL: "Email"},
                            alerts_enabled=store.email_alerts_enabled(),
+                           offline_minutes=store.offline_alert_minutes(),
                            csrf=session.get("csrf"))
+
+
+@app.route("/settings/notifications/offline", methods=["POST"])
+@login_required
+def settings_offline_alert():
+    if not check_csrf():
+        flash("Bad CSRF token.", "error")
+        return redirect(url_for("settings_notifications"))
+    try:
+        minutes = int(request.form.get("minutes", ""))
+        if minutes < 0:
+            raise ValueError
+    except ValueError:
+        flash("Enter a whole number of minutes (0 = off).", "error")
+        return redirect(url_for("settings_notifications"))
+    store.set_offline_alert_minutes(minutes)
+    log_web("Panel-offline alert set to %d minutes" % minutes)
+    flash("Panel-offline alert %s." % ("off" if minutes == 0 else "after %d minute%s without contact"
+                                         % (minutes, "" if minutes == 1 else "s")), "success")
+    return redirect(url_for("settings_notifications"))
 
 
 @app.route("/settings/notifications/alerts", methods=["POST"])
@@ -307,6 +383,7 @@ def settings_email_alerts():
     else:
         on = request.form.get("enabled") == "1"
         store.set_email_alerts_enabled(on)
+        log_web("Email alerts turned %s" % ("on" if on else "off"))
         flash("Email alerts %s." % ("enabled" if on else "disabled - no alert emails will be sent"),
               "success")
     return redirect(url_for("settings_notifications"))
@@ -389,7 +466,8 @@ def _email_form_context(n):
         except (ValueError, TypeError):
             subs = {}
     elif not n:
-        subs = {e: True for e in (events.ALARM, events.PANIC, events.FIRE, events.ARM, events.DISARM)}
+        subs = {e: True for e in (events.ALARM, events.PANIC, events.FIRE, events.ARM, events.DISARM,
+                                  events.PANEL_OFFLINE, events.PANEL_ONLINE)}
     if s.get("zone_filter"):
         try:
             zfilter = [int(z) for z in json.loads(s["zone_filter"])]

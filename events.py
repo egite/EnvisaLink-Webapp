@@ -31,10 +31,15 @@ RFX = 17
 EXP = 18
 AUI = 19
 
+# Our own additions; numbered well clear of AlarmDecoder's range.
+PANEL_OFFLINE = 100
+PANEL_ONLINE = 101
+WEB_ACTION = 102
+
 EVMSG_VERSION = -1
 
 # Life-safety events are never held back by the e-mail throttle.
-CRITICAL_EVENTS = [ALARM, PANIC, FIRE]
+CRITICAL_EVENTS = [ALARM, PANIC, FIRE, PANEL_OFFLINE]
 
 EVENT_TYPES = {
     ARM: 'arm', DISARM: 'disarm', POWER_CHANGED: 'power changed', ALARM: 'alarm',
@@ -43,6 +48,7 @@ EVENT_TYPES = {
     ZONE_RESTORE: 'zone restore', LOW_BATTERY: 'low battery', PANIC: 'panic',
     LRR: 'lrr', READY: 'ready changed', CHIME: 'chime changed',
     ALARM_RESTORED: 'alarm restored', RFX: 'rfx', EXP: 'exp', AUI: 'aui',
+    PANEL_OFFLINE: 'panel offline', PANEL_ONLINE: 'panel online', WEB_ACTION: 'web action',
 }
 
 # Which events a user can subscribe to, in display order (subset relevant to EVL).
@@ -59,6 +65,8 @@ SUBSCRIPTIONS = OrderedDict([
     (POWER_CHANGED, 'Power status has changed'),
     (LOW_BATTERY, 'A low battery has been detected'),
     (BOOT, 'The system has (re)connected'),
+    (PANEL_OFFLINE, 'Lost contact with the panel'),
+    (PANEL_ONLINE, 'Contact with the panel restored'),
     (READY, 'A READY event was detected'),
     (CHIME, 'A CHIME event was detected'),
 ])
@@ -79,6 +87,9 @@ DEFAULT_EVENT_MESSAGES = {
     PANIC: 'Panic!',
     READY: 'Ready status has changed to {status}',
     CHIME: 'Chime status has changed to {status}',
+    PANEL_OFFLINE: 'Lost contact with the alarm panel for {minutes} minutes ({reason}).',
+    PANEL_ONLINE: 'Contact with the alarm panel restored after {duration}.',
+    WEB_ACTION: '{action} from the web app ({who}).',
 }
 
 

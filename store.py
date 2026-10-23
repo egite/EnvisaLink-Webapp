@@ -210,6 +210,15 @@ class Store(object):
             self.settings["log_retention_days"] = max(0, int(days))
             self.save()
 
+    def offline_alert_minutes(self):
+        """Minutes without contact before a panel-offline event (0 = off), default 5."""
+        return max(0, _safe_int(self.settings.get("offline_alert_minutes", 5), 5))
+
+    def set_offline_alert_minutes(self, minutes):
+        with self._lock:
+            self.settings["offline_alert_minutes"] = max(0, int(minutes))
+            self.save()
+
     def set_email_alerts_enabled(self, on):
         with self._lock:
             self.settings["email_alerts_enabled"] = 1 if on else 0

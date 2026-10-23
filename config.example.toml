@@ -4,14 +4,15 @@
 # On the EnvisaLink itself first:
 #   - change its local password from the default "user" (4+ chars; EVL3 max 6)
 #   - give it a static IP / DHCP reservation
-#   - make sure nothing else is talking to port 4025 (only one TPI client allowed)
+#   - it accepts only ONE TPI client on port 4025. To share it with Home Assistant
+#     etc., run the proxy in tpi-proxy/ and point every client (this one too) at it.
 
 [envisalink]
-host = "192.168.1.50"        # EnvisaLink IP address
+host = "192.168.1.50"        # EnvisaLink IP address (or the TPI proxy's)
 port = 4025
 username = "user"            # TPI login name (almost always "user")
 password = "CHANGEME"        # EnvisaLink LOCAL password (the non-default one)
-panel_type = "DSC"
+panel_type = "HONEYWELL"     # "HONEYWELL" (Vista) or "DSC" - must match your panel
 evl_version = 3              # 3 for EVL3, 4 for EVL4
 keepalive_interval = 30     # seconds; heartbeat so the board doesn't reboot
 zone_timer_interval = 20    # seconds between zone-timer dumps

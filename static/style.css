@@ -136,6 +136,10 @@ main.settings h1 { font-size: 1.4rem; margin: 6px 0 16px; }
 .alerts-bar.on { background: rgba(53,198,107,.10); border-color: var(--green); }
 .alerts-bar.off { background: rgba(229,72,77,.10); border-color: var(--red); }
 .alerts-bar form { margin: 0; }
+.offline-alert { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; font-size: .88rem; }
+.offline-alert input { width: 5em; margin: 0 4px; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 9px; font-size: .88rem; }
+.offline-alert .hint { flex-basis: 100%; margin: 0; }
 
 .form { display: flex; flex-direction: column; gap: 16px; }
 .form fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 0; }
@@ -179,6 +183,7 @@ main.settings h1 { font-size: 1.4rem; margin: 6px 0 16px; }
 .log-retention .hint { margin: 0; }
 .log-tbl td.when { white-space: nowrap; color: var(--muted); font-variant-numeric: tabular-nums; }
 .log-tbl td.etype { white-space: nowrap; }
+.log-tbl tr.ev-102 td.etype { color: var(--blue); }
 .log-tbl tr.ev-3 td, .log-tbl tr.ev-11 td, .log-tbl tr.ev-4 td { color: var(--red); }
 .pager { margin-bottom: 8px; }
 @media (max-width: 560px) { .log-tbl th:nth-child(2), .log-tbl td.etype { display: none; } }

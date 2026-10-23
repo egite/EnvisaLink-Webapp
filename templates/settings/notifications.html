@@ -16,6 +16,16 @@
   </form>
 </div>
 
+<form class="offline-alert" method="post" action="{{ url_for('settings_offline_alert') }}">
+  <input type="hidden" name="csrf" value="{{ csrf }}">
+  <label>Panel offline alert after
+    <input type="number" name="minutes" min="0" step="1" value="{{ offline_minutes }}"> minutes without contact
+  </label>
+  <button class="btn-sm" type="submit">Save</button>
+  <span class="hint">0 = off. Emails go to notifications that tick <em>Lost contact with the panel</em> /
+    <em>Contact with the panel restored</em>.</span>
+</form>
+
 {% if notifications %}
 <table class="tbl">
   <thead><tr><th>Description</th><th>Type</th><th>Enabled</th><th></th></tr></thead>

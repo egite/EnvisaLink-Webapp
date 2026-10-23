@@ -3,7 +3,8 @@
 {% block content %}
 <h1>EnvisaLink connection</h1>
 <p class="note">Saving restarts the app so it reconnects with the new settings (a few seconds).
-The EnvisaLink allows only one client at a time, so the old connection is released first.</p>
+The EnvisaLink allows only one client at a time (unless you go through the TPI proxy), so the old
+connection is released first.</p>
 <form method="post" class="form">
   <input type="hidden" name="csrf" value="{{ csrf }}">
 
