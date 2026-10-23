@@ -46,6 +46,11 @@ function render(state) {
   setLed("fire", s.fire);
   setLed("chime", s.chime);
   setLed("ac", s.ac_present !== false);
+
+  var clr = document.getElementById("btn-clear-trouble");
+  var armed = s.armed_away || s.armed_stay || s.armed_zero_entry_delay;
+  clr.disabled = !!armed;
+  clr.classList.toggle("attention", !armed && !!(s.trouble || s.bat_trouble || s.alarm_in_memory || s.ac_present === false));
 }
 
 function poll() {
@@ -59,16 +64,20 @@ function poll() {
 }
 
 function sendKey(k) {
+  sendAction({ action: "keys", keys: k }, "sent " + k);
+}
+
+function sendAction(body, okText) {
   var msg = document.getElementById("kp-msg");
   fetch("/api/command", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF },
-    body: JSON.stringify({ action: "keys", keys: k, partition: PARTITION, csrf: CSRF })
+    body: JSON.stringify(Object.assign({ partition: PARTITION, csrf: CSRF }, body))
   })
     .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
     .then(function (res) {
-      msg.textContent = res.ok ? ("sent " + k) : ("error: " + (res.j.error || "failed"));
+      msg.textContent = res.ok ? okText : ("error: " + (res.j.error || "failed"));
       setTimeout(poll, 300);
       setTimeout(function () { if (msg.textContent.indexOf("error") !== 0) msg.textContent = ""; }, 2500);
     })
@@ -81,6 +90,10 @@ document.querySelectorAll(".key").forEach(function (btn) {
     setTimeout(function () { btn.classList.remove("pressed"); }, 120);
     sendKey(btn.getAttribute("data-key"));
   });
+});
+
+document.getElementById("btn-clear-trouble").addEventListener("click", function () {
+  sendAction({ action: "clear_trouble" }, "sent clear trouble (code + OFF)");
 });
 
 // physical keyboard support

@@ -25,12 +25,22 @@
         <button class="btn btn-stay"   data-action="arm_stay">Arm Stay</button>
         <button class="btn btn-disarm" data-action="disarm">Disarm</button>
       </div>
+      <div class="quick-keys">
+        <button class="btn-quick" id="btn-clear-trouble" data-action="clear_trouble"
+                title="Sends your code + OFF to acknowledge troubles and clear alarm memory">Clear trouble</button>
+      </div>
       <div id="cmd-msg" class="cmd-msg"></div>
     </section>
 
     <section class="zones">
-      <h2>Zones</h2>
-      <ul id="zone-list" class="zone-list"></ul>
+      <div class="zones-head">
+        <h2>Zones</h2>
+        <div class="zone-toggles">
+          <label class="switch"><input type="checkbox" id="opt-faulted"><span></span>Faulted only</label>
+          <label class="switch"><input type="checkbox" id="opt-unnamed"><span></span>Unnamed zones</label>
+        </div>
+      </div>
+      <div id="zone-groups"></div>
     </section>
   </main>
 

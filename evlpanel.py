@@ -28,6 +28,28 @@ import events
 
 log = logging.getLogger("evlpanel")
 
+# Zone kind from its name, first match wins (order matters: "Overhead Garage
+# Door" is garage, "Office Glassbreak" is glass, not window).
+_ZONE_KINDS = [
+    ("glass", ("glassbreak", "glass break", "glass")),
+    ("motion", ("motion", "pir")),
+    ("water", ("water", "flood", "leak")),
+    ("temp", ("temperature", "temp", "freez", "freeze")),
+    ("smoke", ("smoke", "fire", "heat", "co detector", "carbon")),
+    ("mail", ("mailbox", "mail")),
+    ("garage", ("garage",)),
+    ("window", ("window",)),
+    ("door", ("door",)),
+]
+
+
+def zone_kind(name):
+    n = (name or "").lower()
+    for kind, words in _ZONE_KINDS:
+        if any(w in n for w in words):
+            return kind
+    return "other"
+
 
 class EVLPanel(object):
     def __init__(self, config, store=None, notifier=None, eventlog=None):
@@ -177,14 +199,15 @@ class EVLPanel(object):
     # ---- state read ---------------------------------------------------------
 
     def _zone_name(self, n):
+        """(name, named) - named is False for zones nobody gave a name."""
         if self.store is not None:
             name = self.store.zone_name(n)
             if name:
-                return name
+                return name, True
         for z in self.cfg.get("zones", []):
-            if int(z.get("number", -1)) == n:
-                return z.get("name")
-        return "Zone %d" % n
+            if int(z.get("number", -1)) == n and z.get("name"):
+                return z.get("name"), True
+        return "Zone %d" % n, False
 
     def get_state(self):
         num_zones = int(self.conn.get("num_zones", 0))
@@ -207,8 +230,11 @@ class EVLPanel(object):
         for n in range(1, num_zones + 1):
             zdata = (raw.get("zone", {}) or {}).get(n, {})
             status = zdata.get("status", {})
+            name, named = self._zone_name(n)
             zones[n] = {
-                "name": self._zone_name(n),
+                "name": " ".join(name.split()),
+                "named": named,
+                "kind": zone_kind(name),
                 "open": bool(status.get("open", False)),
                 "fault": bool(status.get("fault", False)),
                 "alarm": bool(status.get("alarm", False)),
@@ -255,6 +281,20 @@ class EVLPanel(object):
     def send_keys(self, keys, partition=1):
         # keypresses_to_partition(partitionNumber, keypresses); max 6 per call.
         self._schedule(self._panel.keypresses_to_partition, int(partition), str(keys)[:6])
+
+    def clear_trouble(self, partition=1):
+        """Honeywell: user code + OFF acknowledges troubles / alarm memory.
+
+        Refused while armed, because code + OFF would also disarm.
+        """
+        if str(self.conn.get("panel_type", "")).upper() != "HONEYWELL":
+            raise RuntimeError("clear trouble is only supported on Honeywell panels")
+        if not self._code():
+            raise RuntimeError("no alarm code configured")
+        s = self.get_state()["partitions"].get(int(partition), {})
+        if s.get("armed_away") or s.get("armed_stay") or s.get("armed_zero_entry_delay"):
+            raise RuntimeError("panel is armed - disarm first (code + OFF would disarm it)")
+        self.send_keys(self._code() + "1", partition)
 
     def _code(self):
         return str(self.conn.get("code", ""))

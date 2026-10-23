@@ -54,6 +54,24 @@ Config is TOML, read with Python 3.11+'s built-in `tomllib` — no extra depende
 
 Run at boot with the systemd unit (see the header of `envisalink-webapp.service`).
 
+## Status page
+
+- **Zones are grouped by type** - Doors, Garage, Windows, Glass break, Motion, Water,
+  Temperature, Smoke / fire, Mailbox, Other - each with its own icon. The type is
+  worked out from the zone name (e.g. "Overhead Garage Door" -> Garage, "Office
+  Glassbreak" -> Glass break), so name zones descriptively. Click a group's header to
+  collapse or expand it.
+- **Faulted only** (on by default) shows just zones that are open, in alarm or bypassed;
+  when everything is closed you see "All N zones are closed."
+- **Unnamed zones** (off by default) also shows zones that have no name ("Zone 29").
+- These toggles and collapsed groups are remembered per browser.
+- **Clear trouble** sends your alarm code + OFF (Honeywell), which acknowledges troubles
+  and clears alarm memory. It's disabled while armed, because code + OFF would disarm.
+  It's highlighted when the panel reports a trouble, low battery, AC loss or alarm memory.
+  Also on the Keypad page.
+- Once you sign in you stay signed in on that browser until you sign out or clear its
+  cookies.
+
 ## Keypad
 
 **Keypad** (top nav) is a virtual keypad + display, like the original's:

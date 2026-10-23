@@ -15,6 +15,7 @@ import sys
 import threading
 import time
 import tomllib
+from datetime import timedelta
 
 from flask import (Flask, Response, flash, jsonify, redirect, render_template,
                    request, session, url_for)
@@ -61,6 +62,9 @@ config = load_config()
 
 app = Flask(__name__)
 app.secret_key = get_secret_key()
+# Stay signed in until the browser's cookies are cleared (or Sign out). The
+# secret key is persisted in .secret_key, so restarts don't log anyone out.
+app.permanent_session_lifetime = timedelta(days=3650)
 
 store = Store(DATA_DIR).load()
 # seed zones from config.toml the first time, if the store has none
@@ -103,6 +107,7 @@ def login():
         pw = request.form.get("password", "")
         expected = str(config["web"].get("login_password", ""))
         if expected and secrets.compare_digest(pw, expected):
+            session.permanent = True
             session["authed"] = True
             session["csrf"] = secrets.token_hex(16)
             dest = request.args.get("next") or url_for("index")
@@ -200,6 +205,7 @@ COMMANDS = {
     "panic": lambda part, body: panel.panic(body.get("panic_type", "Police")),
     "bypass": lambda part, body: panel.toggle_bypass(int(body.get("zone", 0))),
     "keys": lambda part, body: panel.send_keys(body.get("keys", ""), part),
+    "clear_trouble": lambda part, body: panel.clear_trouble(part),
 }
 
 
