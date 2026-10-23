@@ -27,8 +27,8 @@
 </form>
 
 {% if notifications %}
-<table class="tbl">
-  <thead><tr><th>Description</th><th>Type</th><th>Enabled</th><th></th></tr></thead>
+<table class="tbl sortable" data-sort-key="notifications">
+  <thead><tr><th data-sort>Description</th><th data-sort>Type</th><th data-sort>Enabled</th><th></th></tr></thead>
   <tbody>
   {% for n in notifications %}
     <tr>
@@ -56,4 +56,5 @@
 
 <p class="note">Only email notifications send in this build. Other types (Pushover, Twilio,
 etc.) imported from an AlarmDecoder export are preserved and re-exported, but not delivered.</p>
+<script src="{{ url_for('static', filename='sortable.js') }}"></script>
 {% endblock %}

@@ -124,6 +124,12 @@ main.settings h1 { font-size: 1.4rem; margin: 6px 0 16px; }
 .tbl th, .tbl td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: .9rem; }
 .tbl th { color: var(--muted); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .05em; }
 .tbl a { color: var(--blue); text-decoration: none; }
+.tbl th .sort-btn { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.tbl th .sort-btn:hover { color: var(--text); }
+.tbl th .sort-btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 3px; }
+.tbl th .sort-ind::after { content: "\2195"; opacity: .35; font-size: .9em; }
+.tbl th[aria-sort="ascending"] .sort-ind::after { content: "\25B2"; opacity: 1; color: var(--blue); }
+.tbl th[aria-sort="descending"] .sort-ind::after { content: "\25BC"; opacity: 1; color: var(--blue); }
 .tbl td.actions { text-align: right; white-space: nowrap; }
 
 .btn-sm { display: inline-block; padding: 7px 12px; border-radius: 8px; border: 1px solid var(--line);

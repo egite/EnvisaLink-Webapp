@@ -161,7 +161,8 @@ back. Both are logged; tick them in a notification to get them by email (new
 notifications have them ticked). This covers the EnvisaLink, the proxy or the network
 going down - though if the network is down the email may not get out either.
 
-Use the **Test** button on the notifications list to send a test message. Only email
+Use the **Test** button on the notifications list to send a test message. Click a column
+heading (Description, Type, Enabled) to sort the list; click again to reverse it. Only email
 sends in this build; other notification types are preserved by import/export but not
 delivered.
 
