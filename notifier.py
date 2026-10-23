@@ -82,6 +82,8 @@ class Notifier(object):
     # ---- public -------------------------------------------------------------
 
     def handle_events(self, event_list):
+        if not self.store.email_alerts_enabled():
+            return
         for etype, kwargs in event_list:
             for n in self.store.notifications:
                 if n["type"] != EMAIL or not n.get("enabled"):
@@ -163,6 +165,9 @@ class Notifier(object):
         if not n:
             return
         self._pending.pop((nid, kwargs.get("zone", "")), None)
+        # A delayed zone-fault may come due after alerts were switched off.
+        if not self.store.email_alerts_enabled():
+            return
         text = self._render(etype, kwargs)
         exempt = etype in events.CRITICAL_EVENTS
         try:

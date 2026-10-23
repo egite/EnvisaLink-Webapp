@@ -196,6 +196,15 @@ class Store(object):
     def message_for(self, event_type):
         return self.messages.get(int(event_type)) or events.DEFAULT_EVENT_MESSAGES.get(int(event_type), "")
 
+    def email_alerts_enabled(self):
+        """Master switch for all email alerts (default on)."""
+        return bool(_safe_int(self.settings.get("email_alerts_enabled", 1), 1))
+
+    def set_email_alerts_enabled(self, on):
+        with self._lock:
+            self.settings["email_alerts_enabled"] = 1 if on else 0
+            self.save()
+
     def zone_name(self, number):
         z = self.zones.get(int(number))
         return z["name"] if z else None

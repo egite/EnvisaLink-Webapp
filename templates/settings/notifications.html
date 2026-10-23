@@ -6,6 +6,16 @@
   <a class="btn-sm primary" href="{{ url_for('settings_notification_edit') }}">+ Add email</a>
 </div>
 
+<div class="alerts-bar {{ 'on' if alerts_enabled else 'off' }}">
+  <span><strong>Email alerts are {{ 'ON' if alerts_enabled else 'OFF' }}</strong>
+    {% if not alerts_enabled %}&mdash; no alert emails will be sent, whatever each notification's setting.{% endif %}</span>
+  <form method="post" action="{{ url_for('settings_email_alerts') }}">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="enabled" value="{{ '0' if alerts_enabled else '1' }}">
+    <button class="btn-sm {{ '' if alerts_enabled else 'primary' }}" type="submit">{{ 'Disable all' if alerts_enabled else 'Enable' }}</button>
+  </form>
+</div>
+
 {% if notifications %}
 <table class="tbl">
   <thead><tr><th>Description</th><th>Type</th><th>Enabled</th><th></th></tr></thead>

@@ -232,7 +232,21 @@ def settings_notifications():
     return render_template("settings/notifications.html",
                            notifications=store.notifications,
                            type_names={EMAIL: "Email"},
+                           alerts_enabled=store.email_alerts_enabled(),
                            csrf=session.get("csrf"))
+
+
+@app.route("/settings/notifications/alerts", methods=["POST"])
+@login_required
+def settings_email_alerts():
+    if not check_csrf():
+        flash("Bad CSRF token.", "error")
+    else:
+        on = request.form.get("enabled") == "1"
+        store.set_email_alerts_enabled(on)
+        flash("Email alerts %s." % ("enabled" if on else "disabled - no alert emails will be sent"),
+              "success")
+    return redirect(url_for("settings_notifications"))
 
 
 @app.route("/settings/notifications/new", methods=["GET", "POST"])

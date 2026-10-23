@@ -131,6 +131,11 @@ main.settings h1 { font-size: 1.4rem; margin: 6px 0 16px; }
 .btn-sm.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
 .btn-sm.danger { color: var(--red); border-color: var(--red); background: transparent; }
 .btn-sm:hover { filter: brightness(1.1); }
+.alerts-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; font-size: .9rem; border: 1px solid; }
+.alerts-bar.on { background: rgba(53,198,107,.10); border-color: var(--green); }
+.alerts-bar.off { background: rgba(229,72,77,.10); border-color: var(--red); }
+.alerts-bar form { margin: 0; }
 
 .form { display: flex; flex-direction: column; gap: 16px; }
 .form fieldset { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin: 0; }
