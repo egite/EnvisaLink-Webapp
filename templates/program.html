@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Program &middot; EnvisaLink</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-csrf="{{ csrf }}">
+  <header class="topbar">
+    <span class="brand">EnvisaLink</span>
+    <a class="navlink" href="{{ url_for('index') }}">Status</a>
+    <a class="navlink" href="{{ url_for('event_log') }}">Log</a>
+    <a class="navlink active" href="{{ url_for('program') }}" aria-current="page">Program</a>
+    <a class="navlink" href="{{ url_for('settings_home') }}">Settings</a>
+    <span id="conn" class="conn pending">connecting&hellip;</span>
+    <a class="logout" href="{{ url_for('logout') }}">Sign out</a>
+  </header>
+
+  <main class="program">
+    <h1>Program the panel</h1>
+    <p class="note">Guided installer programming for the ADEMCO <strong>VISTA-15P / VISTA-20P</strong>
+      (and SIA versions), from the Programming Guide K5305-1PRV5. Every step sends ordinary keypad
+      keys through the EnvisaLink and shows you the panel's own display, so you can check each one.</p>
+    {% if not honeywell %}
+    <div class="flash error">This page is for Honeywell Vista panels. The connection is set to a DSC panel,
+      so the panel will refuse these keys.</div>
+    {% endif %}
+
+    <section class="pg-display" id="pg-display">
+      <div class="lcd" aria-live="polite"><div id="lcd1">&nbsp;</div><div id="lcd2">&nbsp;</div></div>
+      <div class="pg-display-info">
+        <span id="pg-state" class="pg-state">&mdash;</span>
+        <span id="pg-last" class="pg-last"></span>
+        <button type="button" class="btn-quick" id="pg-kp-toggle" aria-expanded="false">Keypad</button>
+      </div>
+      <div class="keypad mini" id="pg-keypad" hidden>
+        {% for k in ['1','2','3','4','5','6','7','8','9','*','0','#'] %}
+        <button type="button" class="key" data-key="{{ k }}">{{ '✱' if k == '*' else k }}</button>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="pg-card">
+      <h2>1. Programming mode</h2>
+      <div class="pg-mode">
+        <label>Panel model
+          <select id="pg-model">
+            <option value="20P">VISTA-20P</option>
+            <option value="20PSIA">VISTA-20PSIA</option>
+            <option value="15P">VISTA-15P</option>
+            <option value="15PSIA">VISTA-15PSIA</option>
+          </select>
+        </label>
+        <label>Installer code
+          <input type="password" id="pg-code" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4112">
+        </label>
+        <button type="button" class="btn-sm primary" id="pg-enter">Enter programming mode</button>
+        <button type="button" class="btn-sm" id="pg-exit">Exit (✱99)</button>
+      </div>
+      <div id="pg-mode-msg" class="cmd-msg"></div>
+      <p class="hint">Sends installer code + 8 0 0 (factory code 4112; the code isn't stored or logged).
+        The panel must be disarmed. While programming, the panel doesn't protect the house and the
+        status page may show odd states. Always leave with <strong>✱99</strong> &mdash; ✱98 locks out
+        installer-code re-entry until the panel is powered down.</p>
+    </section>
+
+    <section class="pg-card">
+      <h2>2. What to program</h2>
+      <div class="pg-tabs" role="tablist">
+        <button type="button" role="tab" data-tab="fields">Data fields</button>
+        <button type="button" role="tab" data-tab="zones">Zones (✱56)</button>
+        <button type="button" role="tab" data-tab="names">Zone names (✱82)</button>
+        <button type="button" role="tab" data-tab="lists">Zone lists (✱81)</button>
+        <button type="button" role="tab" data-tab="ref">Reference</button>
+      </div>
+
+      <div class="pg-tab" id="tab-fields" role="tabpanel">
+        <div class="pg-fields">
+          <div class="pg-field-list">
+            <input type="search" id="pg-search" placeholder="Search fields (e.g. 35, entry, chime)" aria-label="Search fields">
+            <div id="pg-field-groups"></div>
+          </div>
+          <div class="pg-editor" id="pg-editor">
+            <p class="note">Pick a field on the left. You'll see what it does, its factory default and the
+              choices, and the exact keys that will be sent.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="pg-tab" id="tab-zones" role="tabpanel" hidden>
+        <p class="note">Sets a zone's type, partition, report code and wiring, or enrolls a wireless
+          sensor, using the ✱56 menu (guide page 8). Fill in the form, then work through the steps.</p>
+        <form class="form" id="zone-form" autocomplete="off">
+          <div class="two">
+            <label>Zone <select id="z-num"></select></label>
+            <label>Zone type <select id="z-type"></select></label>
+          </div>
+          <div class="two">
+            <label id="z-part-wrap">Partition
+              <select id="z-part"><option value="1">1</option><option value="2">2</option><option value="3">3 (common)</option></select>
+            </label>
+            <label>Report code
+              <select id="z-rc"><option value="10">Enabled (Contact ID)</option><option value="00">Disabled</option></select>
+            </label>
+          </div>
+          <div class="two" id="z-wired">
+            <label id="z-hw-wrap">Hardwire type <select id="z-hw"></select></label>
+            <label>Response time <select id="z-rt"></select></label>
+          </div>
+          <div id="z-rf">
+            <div class="two">
+              <label>Input type <select id="z-input"></select></label>
+              <label id="z-enroll-wrap">Enroll the sensor by
+                <select id="z-enroll"><option value="xmit">Tripping it (transmit)</option><option value="type">Typing its serial number</option></select>
+              </label>
+            </div>
+            <div class="two" id="z-serial-wrap">
+              <label>Serial number (7 digits) <input type="text" id="z-serial" inputmode="numeric" maxlength="7"></label>
+              <label>Loop <select id="z-loop"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+            </div>
+            <label class="chk" id="z-confirm-wrap"><input type="checkbox" id="z-confirm"> Confirm enrollment by tripping the sensor afterwards (recommended)</label>
+          </div>
+          <div id="z-msg" class="hint"></div>
+          <div class="form-actions"><button type="submit" class="btn-sm primary">Build steps</button></div>
+        </form>
+        <div class="runner" id="zone-runner"></div>
+      </div>
+
+      <div class="pg-tab" id="tab-names" role="tabpanel" hidden>
+        <p class="note">Zone names on the keypad are up to three words from the panel's built-in
+          vocabulary (guide page 11), set in the ✱82 menu. The words below start from the names in this
+          web app; change them, untick zones you want to leave alone, then build the steps.</p>
+        <datalist id="vocab-list"></datalist>
+        <div class="names-tbl-wrap"><table class="tbl names-tbl">
+          <thead><tr><th></th><th>Zone</th><th>Word 1</th><th>Word 2</th><th>Word 3</th></tr></thead>
+          <tbody id="names-body"></tbody>
+        </table></div>
+        <div class="form-actions"><button type="button" class="btn-sm primary" id="names-build">Build steps</button></div>
+        <div class="runner" id="names-runner"></div>
+      </div>
+
+      <div class="pg-tab" id="tab-lists" role="tabpanel" hidden>
+        <p class="note">Zone lists group zones for chime-by-zone (list 3 with ✱26), cross zoning,
+          pagers and relays, using the ✱81 menu (guide page 10).</p>
+        <form class="form" id="list-form" autocomplete="off">
+          <div class="two">
+            <label>Zone list <select id="l-num"></select></label>
+            <label>Change
+              <select id="l-mode">
+                <option value="add">Add the ticked zones</option>
+                <option value="replace">Replace the list with the ticked zones</option>
+                <option value="remove">Remove the ticked zones</option>
+                <option value="delete">Delete the whole list</option>
+              </select>
+            </label>
+          </div>
+          <fieldset id="l-zones-wrap"><legend>Zones</legend><div class="chks grid" id="l-zones"></div></fieldset>
+          <div id="l-msg" class="hint"></div>
+          <div class="form-actions"><button type="submit" class="btn-sm primary">Build steps</button></div>
+        </form>
+        <div class="runner" id="list-runner"></div>
+      </div>
+
+      <div class="pg-tab" id="tab-ref" role="tabpanel" hidden>
+        <table class="tbl">
+          <thead><tr><th>Keys</th><th>In programming mode</th></tr></thead>
+          <tbody>
+            <tr><td><code>✱ + field</code></td><td>Go to a data field and enter its value. After the last entry the keypad beeps 3 times and shows the next field.</td></tr>
+            <tr><td><code># + field</code></td><td>Review a field without changing it.</td></tr>
+            <tr><td><code>✱ + field + ✱</code></td><td>Clear a field (✱40-✱46, ✱94 and pager fields only).</td></tr>
+            <tr><td><code>✱56</code> / <code>✱58</code></td><td>Zone programming / expert zone programming.</td></tr>
+            <tr><td><code>✱57</code></td><td>Function keys A-D.</td></tr>
+            <tr><td><code>✱79</code> / <code>✱80</code></td><td>Relay / X-10 output mapping and output programming.</td></tr>
+            <tr><td><code>✱81</code></td><td>Zone lists.</td></tr>
+            <tr><td><code>✱82</code></td><td>Zone descriptors (alpha names) and custom words.</td></tr>
+            <tr><td><code>✱96</code></td><td>Initialize download ID and subscriber account number.</td></tr>
+            <tr><td><code>✱97</code></td><td><strong>Reset every field to factory defaults.</strong></td></tr>
+            <tr><td><code>✱98</code></td><td>Exit and lock out installer code + 800 re-entry (power-cycle the panel, then press ✱ and # together within 50 s to get back in).</td></tr>
+            <tr><td><code>✱99</code></td><td>Exit programming mode normally.</td></tr>
+          </tbody>
+        </table>
+        <table class="tbl">
+          <thead><tr><th>Display</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>OC</code></td><td>Open circuit: the keypad isn't talking to the panel.</td></tr>
+            <tr><td><code>EE</code> / ENTRY ERROR</td><td>Invalid field number; enter a valid one.</td></tr>
+            <tr><td><code>E4</code> / <code>E8</code></td><td>More zones programmed than the expansion modules can handle.</td></tr>
+            <tr><td>AC, dI, Busy Standby</td><td>Normal for about a minute after power-up or leaving programming; # + 0 skips the wait.</td></tr>
+          </tbody>
+        </table>
+        <p class="note">Not covered by guided steps (use the keypad above and the guide): ✱57 function keys,
+          ✱79/✱80 outputs, schedules (installer code + # 6 4), configurable zone types ✱182-✱185,
+          and custom words in ✱82.</p>
+      </div>
+    </section>
+  </main>
+
+  <script id="zones-data" type="application/json">{{ zones|tojson }}</script>
+  <script src="{{ url_for('static', filename='program_data.js') }}"></script>
+  <script src="{{ url_for('static', filename='program.js') }}"></script>
+</body>
+</html>

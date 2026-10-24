@@ -118,6 +118,11 @@ def _log_keypad():
 
 
 def _command_text(action, body):
+    if action == "program":
+        # The page labels what a step does; the keys themselves (which can
+        # include the installer code) are never logged.
+        label = " ".join(str(body.get("label") or "").split())[:100]
+        return "Programming: %s" % label if label else None
     if action == "bypass":
         zone = int(body.get("zone", 0))
         return "Bypass zone %d (%s)" % (zone, store.zone_name(zone) or "Zone %d" % zone)
@@ -184,6 +189,14 @@ def index():
 def keypad():
     # The keypad now lives on the main page; keep old bookmarks working.
     return redirect(url_for("index") + "#keypad")
+
+
+@app.route("/program")
+@login_required
+def program():
+    zones = [{"number": n, "name": store.zone_name(n) or ""} for n, _ in _zone_choices()]
+    return render_template("program.html", csrf=session.get("csrf"), zones=zones,
+                           honeywell=str(panel.conn.get("panel_type", "")).upper() == "HONEYWELL")
 
 
 LOG_PAGE_SIZE = 100
@@ -257,6 +270,7 @@ COMMANDS = {
     "keys": lambda part, body: panel.send_keys(body.get("keys", ""), part),
     "clear_trouble": lambda part, body: panel.clear_trouble(part),
     "toggle_chime": lambda part, body: panel.toggle_chime(part),
+    "program": lambda part, body: panel.program_keys(body.get("keys", ""), part, bool(body.get("enter"))),
 }
 
 
@@ -281,7 +295,9 @@ def api_command():
     if action == "keys":
         _log_keypad()
     else:
-        log_web(_command_text(action, body))
+        text = _command_text(action, body)
+        if text:
+            log_web(text)
     return jsonify({"ok": True, "action": action})
 
 

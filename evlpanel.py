@@ -392,6 +392,22 @@ class EVLPanel(object):
         keys = keys[:6] if not self._honeywell() else keys[:16]
         self._schedule(self._panel.keypresses_to_partition, int(partition), keys)
 
+    def program_keys(self, keys, partition=1, enter=False):
+        """Keys for installer programming (the Program page), up to 16 per call.
+
+        `enter` marks the installer code + 800 sequence, refused while armed:
+        a Vista only enters programming mode when disarmed, and a wrong code
+        there would just be keys typed at an armed panel.
+        """
+        if not self._honeywell():
+            raise RuntimeError("guided programming is only for Honeywell Vista panels")
+        keys = str(keys)
+        if not re.fullmatch(r"[0-9*#]{1,16}", keys):
+            raise RuntimeError("keys must be 1-16 of 0-9, * and #")
+        if enter and self._armed(partition):
+            raise RuntimeError("panel is armed - disarm before entering programming mode")
+        self.send_keys(keys, partition)
+
     def toggle_chime(self, partition=1):
         """Honeywell: user code + CHIME (9) toggles chime mode."""
         if not self._honeywell():

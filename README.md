@@ -136,6 +136,33 @@ sequences (`*72`, etc.) just like the physical keypad. Your computer's number ke
 too. The panel's own display text and trouble/AC/chime badges are in the status banner
 at the top. (The old `/keypad` URL now jumps here.)
 
+## Program (guided panel programming)
+
+**Program** (top nav) walks you through installer programming of a **VISTA-15P / VISTA-20P**
+(and SIA versions), based on the Programming Guide K5305-1PRV5. It only sends ordinary keypad
+keys through the EnvisaLink, so it works with any Vista the TPI can type at, and it shows the
+panel's own 2x16 display at the top so you can check every step. A small keypad is there for
+anything the guided steps don't cover.
+
+- **Programming mode**: pick the panel model, type the installer code (factory 4112) and press
+  *Enter programming mode* (code + 800; refused while armed). Leave with **Exit (✱99)** - never
+  ✱98, which locks out installer-code re-entry until the panel is power-cycled.
+- **Data fields**: every field in the guide's programming form (✱20-✱199), searchable and grouped,
+  with its factory default, plain-language choices (per partition on the 20P) and the exact keys
+  that will be sent. *View current value* sends # + field. Phone and account fields can be cleared.
+- **Zones (✱56)**: zone type, partition, report code, wiring and response time, or wireless
+  enrollment (trip the sensor or type its serial), as a numbered list of steps. Each step says what
+  the display should show and ticks when it does.
+- **Zone names (✱82)**: keypad zone descriptors, filled in from the zone names in this app using the
+  panel's vocabulary (words it doesn't have are flagged).
+- **Zone lists (✱81)**: add, replace, remove or delete the zones on a list (e.g. list 3 for
+  chime-by-zone).
+- **Reference**: programming-mode commands and display messages.
+
+Each step is recorded in the Log as *Programming: ...* (never the keys, so never the installer
+code). While the panel is in programming mode it isn't protecting the house, and the status page
+may show odd states.
+
 ## Log
 
 **Log** (top nav) lists every panel event the app sees - arm/disarm, zone faults and
@@ -244,7 +271,8 @@ alarm), keypad alpha line, trouble/AC/fire/battery badges, zones grouped by type
 open/alarm/bypass status, arm-away / arm-stay / disarm, quick keys (chime, clear trouble,
 per-zone bypass), a virtual keypad, an event log (panel events and web actions), email
 notifications (with throttle and a panel-offline alert), and AlarmDecoder-compatible
-import/export. A panic endpoint exists in the API.
+import/export, and guided installer programming for VISTA-15P/20P panels. A panic endpoint
+exists in the API.
 
 Not yet: non-email notification backends (preserved by import/export but not sent),
 multi-user accounts, multiple partitions in the UI (the API carries
