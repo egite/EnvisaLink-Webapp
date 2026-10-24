@@ -60,10 +60,22 @@
         <button class="key" data-key="0"><span class="key-num">0</span><span class="key-fn">&nbsp;</span></button>
         <button class="key" data-key="#"><span class="key-num">#</span><span class="key-fn">&nbsp;</span></button>
       </div>
+      <div class="kp-mode">
+        <label class="switch"><input type="checkbox" id="opt-buffer"><span></span>Type first, then press Enter</label>
+      </div>
+      <div id="kp-entry" class="kp-entry" hidden>
+        <input type="text" id="kp-buffer" class="kp-buffer" inputmode="tel" autocomplete="off"
+               spellcheck="false" maxlength="16" placeholder="keys to send" aria-label="Keys to send">
+        <button type="button" id="kp-clear" class="btn-quick">Clear</button>
+        <button type="button" id="kp-enter" class="btn-quick kp-enter">Enter</button>
+      </div>
       <div id="kp-msg" class="cmd-msg"></div>
-      <p class="note">Keys go straight to the panel &mdash; type your code to arm or disarm, or use
+      <ol id="kp-history" class="kp-history" hidden></ol>
+      <p class="note" id="kp-note-direct">Keys go straight to the panel &mdash; type your code to arm or disarm, or use
         <code>*</code> sequences (e.g. <code>*72</code>) just like the physical keypad. Your
         computer's number keys work too.</p>
+      <p class="note" id="kp-note-buffer" hidden>Keys collect in the box above &mdash; edit them with your
+        keyboard, then press Enter to send the whole line to the panel (up to 16 keys).</p>
     </section>
   </main>
 

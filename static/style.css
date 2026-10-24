@@ -178,6 +178,23 @@ main.settings h1 { font-size: 1.4rem; margin: 6px 0 16px; }
 .key-fn { font-size: .62rem; font-weight: 700; letter-spacing: .08em; color: var(--muted); line-height: 1; }
 .key.pressed .key-fn { color: #fff; }
 .key.pressed { background: var(--blue); color: #fff; transform: translateY(1px); }
+.kp-mode { display: flex; justify-content: center; margin-top: 16px; }
+.kp-entry { display: flex; gap: 8px; max-width: 420px; margin: 12px auto 0; }
+.kp-entry[hidden] { display: none; }
+.kp-buffer { flex: 1; min-width: 0; padding: 9px 12px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); font: 600 1.2rem/1.2 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .12em; }
+.kp-buffer:focus { outline: none; border-color: var(--blue); }
+.btn-quick.kp-enter { background: var(--blue); border-color: var(--blue); color: #fff; }
+.btn-quick.kp-enter:disabled { opacity: .45; cursor: default; }
+.kp-history { list-style: none; padding: 0; max-width: 420px; margin: 4px auto 0; max-height: 220px; overflow-y: auto;
+  border: 1px solid var(--line); border-radius: 10px; }
+.kp-history li { display: flex; gap: 10px; align-items: baseline; padding: 6px 12px; border-bottom: 1px solid var(--line); font-size: .85rem; }
+.kp-history li:last-child { border-bottom: none; }
+.kp-history .when { color: var(--muted); font-variant-numeric: tabular-nums; }
+.kp-history .keys { flex: 1; font-family: ui-monospace, Menlo, Consolas, monospace; font-weight: 600; letter-spacing: .1em; overflow-wrap: anywhere; }
+.kp-history .status { color: var(--muted); font-size: .78rem; }
+.kp-history .status.ok { color: var(--green); }
+.kp-history .status.err { color: var(--red); }
 
 /* ---- log page ---- */
 .log-filter, .log-retention { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }

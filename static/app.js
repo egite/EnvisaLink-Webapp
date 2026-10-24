@@ -249,9 +249,10 @@ document.querySelectorAll("button[data-action]").forEach(function (btn) {
 
 // ---- keypad ----------------------------------------------------------------
 
+// Resolves to null on success, or an error string.
 function sendKey(k) {
   var msg = document.getElementById("kp-msg");
-  fetch("/api/command", {
+  return fetch("/api/command", {
     method: "POST",
     credentials: "same-origin",
     headers: { "Content-Type": "application/json", "X-CSRF-Token": CSRF },
@@ -262,21 +263,108 @@ function sendKey(k) {
       msg.textContent = res.ok ? ("sent " + k) : ("error: " + (res.j.error || "failed"));
       setTimeout(poll, 300);
       setTimeout(function () { if (msg.textContent.indexOf("error") !== 0) msg.textContent = ""; }, 2500);
+      return res.ok ? null : (res.j.error || "failed");
     })
-    .catch(function () { msg.textContent = "network error"; });
+    .catch(function () { msg.textContent = "network error"; return "network error"; });
+}
+
+// Buffered mode: keys collect in an editable box and go out as one line on Enter.
+var optBuffer = document.getElementById("opt-buffer");
+var kpBuffer = document.getElementById("kp-buffer");
+var kpEnter = document.getElementById("kp-enter");
+var kpHistory = document.getElementById("kp-history");
+var KP_MAX = Number(kpBuffer.getAttribute("maxlength"));
+
+function setKeypadMode() {
+  var on = optBuffer.checked;
+  document.getElementById("kp-entry").hidden = !on;
+  document.getElementById("kp-note-direct").hidden = on;
+  document.getElementById("kp-note-buffer").hidden = !on;
+}
+optBuffer.checked = pref("keypadBuffer", false);
+setKeypadMode();
+optBuffer.addEventListener("change", function () {
+  setPref("keypadBuffer", optBuffer.checked);
+  setKeypadMode();
+});
+
+function updateEnter() { kpEnter.disabled = !kpBuffer.value; }
+
+// Insert at the caret (the input keeps its selection while unfocused, so
+// keypad clicks land where the user last put the cursor).
+function bufferInsert(k) {
+  if (kpBuffer.value.length >= KP_MAX) return;
+  var s = kpBuffer.selectionStart, e = kpBuffer.selectionEnd;
+  if (s == null) { s = e = kpBuffer.value.length; }
+  kpBuffer.setRangeText(k, s, e, "end");
+  updateEnter();
+}
+
+kpBuffer.addEventListener("input", function () {
+  var pos = kpBuffer.selectionStart;
+  var clean = kpBuffer.value.replace(/[^0-9*#]/g, "");
+  if (clean !== kpBuffer.value) {
+    pos -= kpBuffer.value.length - clean.length;
+    kpBuffer.value = clean;
+    kpBuffer.setSelectionRange(pos, pos);
+  }
+  updateEnter();
+});
+kpBuffer.addEventListener("keydown", function (e) {
+  if (e.key === "Enter") { e.preventDefault(); sendBuffer(); }
+  else if (e.key === "Escape") { kpBuffer.value = ""; updateEnter(); }
+});
+kpEnter.addEventListener("click", sendBuffer);
+document.getElementById("kp-clear").addEventListener("click", function () {
+  kpBuffer.value = "";
+  updateEnter();
+});
+updateEnter();
+
+function sendBuffer() {
+  var keys = kpBuffer.value;
+  if (!keys) return;
+  kpBuffer.value = "";
+  updateEnter();
+
+  var li = document.createElement("li");
+  li.innerHTML = '<span class="when"></span><span class="keys"></span><span class="status">sending…</span>';
+  li.querySelector(".when").textContent = new Date().toLocaleTimeString();
+  li.querySelector(".keys").textContent = keys;
+  kpHistory.insertBefore(li, kpHistory.firstChild);
+  kpHistory.hidden = false;
+  kpHistory.scrollTop = 0;
+
+  sendKey(keys).then(function (err) {
+    var st = li.querySelector(".status");
+    st.className = "status " + (err ? "err" : "ok");
+    st.textContent = err ? err : "sent";
+  });
 }
 
 document.querySelectorAll(".key").forEach(function (btn) {
   btn.addEventListener("click", function () {
     btn.classList.add("pressed");
     setTimeout(function () { btn.classList.remove("pressed"); }, 120);
-    sendKey(btn.getAttribute("data-key"));
+    if (optBuffer.checked) bufferInsert(btn.getAttribute("data-key"));
+    else sendKey(btn.getAttribute("data-key"));
   });
 });
 
 // physical keyboard support
 document.addEventListener("keydown", function (e) {
   if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
+  if (optBuffer.checked && !e.ctrlKey && !e.metaKey && !e.altKey &&
+      (/^[0-9*#]$/.test(e.key) || e.key === "Backspace" ||
+       // Enter only when nothing else (a zone button, a link) would act on it
+       (e.key === "Enter" && (e.target === document.body || e.target.closest("#keypad"))))) {
+    // Hand typing over to the box so it can be edited like any text field.
+    var end = kpBuffer.value.length;
+    kpBuffer.focus();
+    kpBuffer.setSelectionRange(end, end);
+    if (e.key === "Enter") { e.preventDefault(); sendBuffer(); return; }
+    if (e.key === "Backspace") { e.preventDefault(); kpBuffer.value = kpBuffer.value.slice(0, -1); updateEnter(); return; }
+  }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (/^[0-9*#]$/.test(e.key)) {
     var btn = document.querySelector('.key[data-key="' + e.key + '"]');
