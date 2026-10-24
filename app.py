@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import secrets
+import subprocess
 import sys
 import threading
 import time
@@ -60,7 +61,26 @@ def get_secret_key():
     return key
 
 
+def app_version():
+    """When the code last changed: the last commit's time, e.g. "October 26, 2026  07:19".
+
+    Falls back to the newest source file's modified time when git isn't there.
+    """
+    try:
+        ts = int(subprocess.run(["git", "log", "-1", "--format=%ct"], cwd=HERE, capture_output=True,
+                                text=True, timeout=5, check=True).stdout.strip())
+    except (OSError, ValueError, subprocess.SubprocessError):
+        ts = 0
+        for d in ("", "templates", "templates/settings", "static"):
+            for name in os.listdir(os.path.join(HERE, d)):
+                if name.endswith((".py", ".html", ".js", ".css")):
+                    ts = max(ts, os.path.getmtime(os.path.join(HERE, d, name)))
+    t = time.localtime(ts)
+    return "%s %d, %d  %s" % (time.strftime("%B", t), t.tm_mday, t.tm_year, time.strftime("%H:%M", t))
+
+
 config = load_config()
+VERSION = app_version()
 
 app = Flask(__name__)
 app.secret_key = get_secret_key()
@@ -80,6 +100,11 @@ eventlog = EventLog(DATA_DIR)
 eventlog.start_purger(store.log_retention_days)
 panel = EVLPanel(config, store=store, notifier=notifier, eventlog=eventlog)
 panel.start()
+
+
+@app.context_processor
+def inject_version():
+    return {"version": VERSION}
 
 
 # ---- web action log ---------------------------------------------------------

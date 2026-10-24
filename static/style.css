@@ -31,6 +31,7 @@ body {
 .login-card input, .login-card button { font-size: 1rem; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line); }
 .login-card input { background: var(--panel-2); color: var(--text); }
 .login-card button { background: var(--blue); color: #fff; border: none; font-weight: 600; cursor: pointer; }
+.login-body .version { position: fixed; left: 0; right: 0; bottom: 0; }
 .error { color: var(--red); margin: 0; text-align: center; font-size: 0.9rem; }
 
 /* ---- app ---- */
@@ -338,3 +339,9 @@ main.program h1 { font-size: 1.4rem; margin: 6px 0 8px; }
   .lcd { font-size: .95rem; }
   .keypad.mini { grid-template-columns: repeat(6, 1fr); width: 100%; }
 }
+
+/* ---- version footer (all pages) ---- */
+/* Column layout so the footer sits at the bottom of the window on short pages. */
+body:not(.login-body) { min-height: 100vh; display: flex; flex-direction: column; }
+body:not(.login-body) > main { width: 100%; }
+.version { margin-top: auto; text-align: center; color: var(--muted); font-size: .75rem; padding: 14px 16px 18px; white-space: pre; }

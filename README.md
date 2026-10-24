@@ -104,6 +104,10 @@ If you edit the unit file, copy it again and run `sudo systemctl daemon-reload` 
 restarting. Changes made in the browser (Settings) don't need a restart - saving the
 Connection page restarts the app by itself.
 
+The version - the date and time of the last commit, e.g. `October 26, 2026  07:19` - is shown
+at the bottom of every page, so you can tell which code a running copy has. It's read when the app
+starts, so restart after `git pull`.
+
 ## Status page
 
 - **Zones are grouped by type** - Doors, Garage, Windows, Glass break, Motion, Water,
