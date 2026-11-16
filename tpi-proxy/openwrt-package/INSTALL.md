@@ -12,7 +12,7 @@ described in [README.md](README.md).
 
 You need:
 
-- The package file, e.g. `luci-app-envisalink-1.0.0.apk`.
+- The package file, e.g. `luci-app-envisalink-1.0.1.apk`.
 - `envisalink-pkg.rsa.pub` — the signing public key (only for the LuCI-upload method).
 - The router **online** (so apk can fetch the dependencies from the feeds).
 

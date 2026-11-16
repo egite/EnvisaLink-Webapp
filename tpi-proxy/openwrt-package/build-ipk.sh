@@ -8,7 +8,7 @@
 # Needs: ar (binutils), tar, gzip, sed, install.  Run it anywhere with those.
 set -e
 
-VERSION=1.0.0
+VERSION=1.0.1
 HERE=$(cd "$(dirname "$0")" && pwd)
 SRC="$HERE/.."                 # the tpi-proxy/ directory (proxy + init live here)
 OUT="$HERE/dist"

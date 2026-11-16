@@ -10,6 +10,9 @@ command upstream.
 - Emulates the session login (Honeywell `Login:`/`OK`, or DSC `505`/`005`) and
   replays the last state messages to a newly-connected client so it has current
   state immediately. Panel traffic is forwarded verbatim.
+- Gives each command reply (`^xx,yy$` / DSC `500`-`502`) only to the client that
+  sent the command, and answers clients itself for a short while if the EnvisaLink
+  link drops (see Notes).
 - Runs on an OpenWrt router or any always-on Linux host on the LAN.
 
 See [`../docs/multi-client-access.md`](../docs/multi-client-access.md) for why this
@@ -23,7 +26,7 @@ python3 tpi_proxy.py --evl-host 192.168.21.123 --evl-pass SECRET --panel honeywe
 
 Then point a client at `this-host:4025`. Flags (or the matching env vars
 `EVL_HOST`, `EVL_PASS`, `PANEL`, `LISTEN_HOST`, `LISTEN_PORT`, `CLIENT_PASS`,
-`KEEPALIVE`): `--help` lists them. `--panel` is `honeywell` or `dsc`.
+`KEEPALIVE`, `DOWN_GRACE`): `--help` lists them. `--panel` is `honeywell` or `dsc`.
 
 ## Which OpenWrt? apk vs opkg
 
@@ -37,7 +40,7 @@ Check with `apk --version` vs `opkg --version` on the router.
 ## Install on apk-based OpenWrt (24.10 / 25.12+) — .apk package
 
 A single, signed, noarch package is in [`openwrt-package/dist/`](openwrt-package/dist/):
-**`luci-app-envisalink-1.0.0.apk`**. It's self-contained — the proxy, its service, the
+**`luci-app-envisalink-1.0.1.apk`**. It's self-contained — the proxy, its service, the
 UCI config and the **Services → Envisalink** UI are all inside, and it depends only on
 packages that are in the OpenWrt feeds (`python3-light`, `python3-asyncio`,
 `python3-logging`, `luci-base`). So it's **one upload, no ordering**. Rebuild with
@@ -53,14 +56,14 @@ scp openwrt-package/keys/envisalink-pkg.rsa.pub root@ROUTER:/etc/apk/keys/
 
 **Then, via LuCI** (**System → Software**, router online): **Update lists…** (so apk can
 fetch the dependencies from the feeds), then **Upload Package…** →
-`luci-app-envisalink-1.0.0.apk`. That installs the proxy, the service and the LuCI page
+`luci-app-envisalink-1.0.1.apk`. That installs the proxy, the service and the LuCI page
 and pulls in the dependencies automatically.
 
 Then open **Services → Envisalink**, set the EnvisaLink IP / password / panel type,
 enable, **Save & Apply**, and **Start**.
 
 > **Prefer not to trust a key?** Install over SSH instead, which allows unsigned:
-> `apk add --allow-untrusted ./luci-app-envisalink-1.0.0.apk` (after copying it to the
+> `apk add --allow-untrusted ./luci-app-envisalink-1.0.1.apk` (after copying it to the
 > router). Or use the installer script below, which needs no package at all.
 
 ## Install on any OpenWrt — installer script (no package)
@@ -83,14 +86,14 @@ enable, Save & Apply, and Start.
 ## Install on opkg-based OpenWrt (≤23.05) — package + LuCI menu
 
 Two prebuilt, noarch packages are in [`openwrt-package/dist/`](openwrt-package/dist/):
-`tpi-proxy_1.0.0_all.ipk` (the proxy) and `luci-app-envisalink_1.0.0_all.ipk` (a
+`tpi-proxy_1.0.1_all.ipk` (the proxy) and `luci-app-envisalink_1.0.1_all.ipk` (a
 **Services → Envisalink** page to configure it and start/stop/restart it). Rebuild
 both anytime with `openwrt-package/build-ipk.sh` (needs only `ar`, `tar`, `sed` — no
 OpenWrt SDK).
 
 1. **Update the package lists** so opkg can pull dependencies — LuCI: **System →
    Software → Update lists…**, or `opkg update`.
-2. **Upload `luci-app-envisalink_1.0.0_all.ipk`** in **System → Software → Upload
+2. **Upload `luci-app-envisalink_1.0.1_all.ipk`** in **System → Software → Upload
    Package…**. opkg automatically installs its dependencies: `tpi-proxy` and the
    python3 modules (`python3-light`, `python3-asyncio`, `python3-logging`). The
    router needs internet and a few MB of flash for python3 (use extroot/USB if tight).
@@ -99,7 +102,7 @@ OpenWrt SDK).
 4. Use the **Start / Restart** buttons on that page. The status line shows whether
    it's running. `logread -e tpi-proxy` shows the connection log.
 
-> If you'd rather not use LuCI, upload just `tpi-proxy_1.0.0_all.ipk` and configure
+> If you'd rather not use LuCI, upload just `tpi-proxy_1.0.1_all.ipk` and configure
 > with UCI: `uci set envisalink.main.evl_host=...`, `uci set envisalink.main.evl_pass=...`,
 > `uci set envisalink.main.panel=honeywell`, `uci commit`, then
 > `/etc/init.d/evl-tpi-proxy enable && /etc/init.d/evl-tpi-proxy start`.
@@ -151,7 +154,19 @@ Switch them over one at a time so the proxy can grab the EnvisaLink once HA lets
   instance.
 - Keep `/etc/tpi-proxy.conf` readable only by root — it has the password. It's not
   in git.
-- A client command's ack (e.g. a `^..` response) is broadcast to all clients; TPI
-  clients ignore acks they didn't ask for, so this is harmless.
+- Command replies (Honeywell `^xx,yy$`, DSC `500`/`501`/`502`) go **only to the
+  client that sent the command**. The EnvisaLink answers commands one at a time, in
+  order, so the proxy pairs each reply with the oldest waiting command of the same
+  code. This matters for Home Assistant's `envisalink_new` integration: it pairs
+  replies with its own commands and drops the connection if its `^00` keepalive
+  goes unanswered, so other clients' replies must not reach it. Replies to the
+  proxy's own keepalive and refresh go to nobody. Zone, partition and keypad
+  messages still go to every client.
 - If the upstream connection drops, the proxy reconnects automatically and keeps
-  your clients connected.
+  your clients connected for up to `DOWN_GRACE` seconds (`--down-grace`, default
+  30). Meanwhile it answers their commands itself: keepalive polls get "accepted",
+  anything else gets a retryable "busy" error (`^xx,01$` / DSC `502001`), and
+  commands that were in flight when the link dropped are answered the same way.
+  If the link is still down after the grace period, the proxy disconnects its
+  clients and refuses new ones until the EnvisaLink is back, so they report the
+  outage instead of a false "connected".
