@@ -13,6 +13,7 @@ STOP=10
 
 start_service() {
     local evl_host evl_port evl_pass panel listen_host listen_port client_pass keepalive enabled
+    local down_grace reply_timeout stall_timeout
 
     config_load envisalink
     config_get      evl_host    main evl_host
@@ -23,6 +24,9 @@ start_service() {
     config_get      listen_port main listen_port 4025
     config_get      client_pass main client_pass
     config_get      keepalive   main keepalive   120
+    config_get      down_grace    main down_grace
+    config_get      reply_timeout main reply_timeout
+    config_get      stall_timeout main stall_timeout
     config_get_bool enabled     main enabled     1
 
     # Fall back to the env file when UCI has no host (non-LuCI installs).
@@ -36,6 +40,9 @@ start_service() {
         listen_port="${LISTEN_PORT:-$listen_port}"
         client_pass="${CLIENT_PASS:-$client_pass}"
         keepalive="${KEEPALIVE:-$keepalive}"
+        down_grace="${DOWN_GRACE:-$down_grace}"
+        reply_timeout="${REPLY_TIMEOUT:-$reply_timeout}"
+        stall_timeout="${STALL_TIMEOUT:-$stall_timeout}"
     fi
 
     [ "$enabled" = "1" ] || { echo "tpi-proxy: disabled in config"; return 0; }
@@ -50,6 +57,9 @@ start_service() {
         --panel "$panel" --listen-host "$listen_host" --listen-port "$listen_port" \
         --keepalive "$keepalive"
     [ -n "$client_pass" ] && procd_append_param command --client-pass "$client_pass"
+    [ -n "$down_grace" ] && procd_append_param command --down-grace "$down_grace"
+    [ -n "$reply_timeout" ] && procd_append_param command --reply-timeout "$reply_timeout"
+    [ -n "$stall_timeout" ] && procd_append_param command --stall-timeout "$stall_timeout"
     procd_set_param respawn
     procd_set_param stdout 1
     procd_set_param stderr 1

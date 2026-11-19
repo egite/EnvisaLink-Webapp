@@ -19,17 +19,23 @@ The protocol-specific parts are:
   their own commands (e.g. Home Assistant's envisalink_new, whose keepalive drops
   the connection if its `^00` poll goes unanswered) never see another client's
   replies. Replies to the proxy's own keepalive and refresh go to nobody.
-- *EnvisaLink link down.* While the proxy is reconnecting, it answers client
-  commands itself (keepalive polls: OK; anything else: a retryable "busy" error), so
-  a short blip doesn't make every client time out. If the link stays down longer
-  than DOWN_GRACE seconds, the proxy disconnects its clients and refuses new ones
-  until the EnvisaLink is back, so they see the outage instead of a fake "alive".
+- *EnvisaLink link down or hung.* The proxy never lets a client's command go
+  unanswered: if the EnvisaLink hasn't replied within REPLY_TIMEOUT seconds (less
+  than Home Assistant's 5 s command timeout), or the link is down, the proxy answers
+  it itself (keepalive polls: OK; anything else: a retryable "busy" error). The
+  EnvisaLink sometimes goes silent for a couple of minutes while the TCP connection
+  still looks open; without this, Home Assistant's envisalink_new drops its
+  connection, every zone goes "unavailable", and every zone's last-changed time
+  resets. A link that is closed, or has left a command unanswered for STALL_TIMEOUT
+  seconds, counts as down. If it stays down longer than DOWN_GRACE seconds, the
+  proxy disconnects its clients and refuses new ones until the EnvisaLink is back,
+  so they see the outage instead of a fake "alive".
 
 Pure standard library (asyncio) - no dependencies. Runs on an OpenWrt router
 (python3-light) or any always-on LAN host. Configure with flags or env vars:
 
   EVL_HOST, EVL_PORT, EVL_PASS, LISTEN_HOST, LISTEN_PORT, CLIENT_PASS, PANEL,
-  KEEPALIVE, DOWN_GRACE
+  KEEPALIVE, DOWN_GRACE, REPLY_TIMEOUT, STALL_TIMEOUT
 
   tpi_proxy.py --evl-host 192.168.21.123 --evl-pass SECRET --panel honeywell
 """
@@ -70,6 +76,7 @@ class HoneywellProfile:
     cache_prefixes = (b"%00", b"%02", b"%FF")
     refresh_cmd = b"^02,$" + CRLF        # dump zone timers -> fresh %FF
     poll_cmd = b"^00,$" + CRLF           # keepalive / watchdog poll
+    poll_code = b"00"
 
     def cache_key(self, line: bytes):
         head = line.split(b",", 1)[0].strip()
@@ -138,6 +145,7 @@ class DscProfile:
     cache_prefixes = ()
     refresh_cmd = _dsc_frame("001")      # status report -> rebroadcast of state
     poll_cmd = _dsc_frame("000")         # keepalive / watchdog poll
+    poll_code = b"000"
 
     def cache_key(self, line: bytes):
         return None
@@ -200,7 +208,8 @@ PROFILES = {"honeywell": HoneywellProfile, "dsc": DscProfile}
 
 class Proxy:
     def __init__(self, evl_host, evl_port, evl_pass, listen_host, listen_port,
-                 client_pass, profile, keepalive, down_grace=30):
+                 client_pass, profile, keepalive, down_grace=300,
+                 reply_timeout=3.0, stall_timeout=10.0):
         self.evl_host = evl_host
         self.evl_port = evl_port
         self.evl_pass = evl_pass
@@ -210,13 +219,19 @@ class Proxy:
         self.profile = profile
         self.keepalive = keepalive
         self.down_grace = down_grace
+        self.reply_timeout = reply_timeout
+        self.stall_timeout = stall_timeout
 
         self.clients = set()             # writers of logged-in clients
         self.upstream_writer = None
-        self.down_since = time.monotonic()   # None while the EVL link is up
+        self.down_since = time.monotonic()   # None while the EVL link is connected
+        self.stall_logged = False
+        self.last_reply = 0.0            # when the EVL last answered any command
         self.cache = {}                  # prefix -> last raw line
-        # Commands sent upstream and not yet answered, oldest first:
-        # [owner writer (None = the proxy itself), command code, time sent]
+        # Commands sent upstream and not yet answered by the EVL, oldest first:
+        # [owner writer, command code, time sent]. owner is None for the proxy's own
+        # commands, and for ones the proxy already answered itself after
+        # reply_timeout; the entry stays so a late EVL reply is matched and dropped.
         self.pending = collections.deque()
 
     # ---- upstream (the one real EnvisaLink connection) ----------------------
@@ -252,6 +267,7 @@ class Proxy:
         self.pending.clear()
         self.upstream_writer = writer
         self.down_since = None
+        self.stall_logged = False
         log.info("logged in to EnvisaLink; %d client(s) connected", len(self.clients))
         ka = asyncio.create_task(self._keepalive(writer))
         try:
@@ -266,7 +282,11 @@ class Proxy:
                 if code is None:
                     self._broadcast(line)
                 else:
+                    self.last_reply = time.monotonic()
                     self._route_reply(code, line)
+                    if self.stall_logged and not self._stalled():
+                        self.stall_logged = False
+                        log.info("EnvisaLink answering commands again")
         finally:
             ka.cancel()
             self._upstream_down()
@@ -344,24 +364,72 @@ class Proxy:
         for w in list(self.clients):
             self._write(w, line)
 
-    def _down_too_long(self):
-        return (self.upstream_writer is None and self.down_since is not None
-                and time.monotonic() - self.down_since > self.down_grace)
+    def _stalled(self, now=None):
+        """True when the link is open but the EVL has answered no command for
+        stall_timeout seconds while one is waiting (it has gone quiet without
+        closing the socket). One lost reply doesn't count while others arrive."""
+        if self.upstream_writer is None or not self.pending:
+            return False
+        now = time.monotonic() if now is None else now
+        return (now - self.pending[0][2] > self.stall_timeout
+                and now - self.last_reply > self.stall_timeout)
+
+    def _unhealthy_since(self, now=None):
+        """When the link went down or hung, or None if it's working."""
+        if self.upstream_writer is None:
+            return self.down_since
+        if self._stalled(now):
+            return self.pending[0][2]
+        return None
+
+    def _down_too_long(self, now=None):
+        now = time.monotonic() if now is None else now
+        since = self._unhealthy_since(now)
+        return since is not None and now - since > self.down_grace
+
+    def _answer_overdue(self, now):
+        """Answer, on the EVL's behalf, client commands it hasn't answered in
+        reply_timeout seconds, so no client hits its own command timeout."""
+        for e in self.pending:
+            owner, code, sent = e
+            if owner is not None and now - sent > self.reply_timeout:
+                e[0] = None          # keep the slot: a late EVL reply lands here
+                if owner in self.clients:
+                    log.debug("no EVL reply to %r in %ss; answering %s locally",
+                              code, self.reply_timeout, self._peer(owner))
+                    self._write(owner, self.profile.local_reply(code))
 
     async def down_watchdog(self):
-        # If the EVL link stays down past the grace period, drop the clients so they
+        # Every half second: answer overdue commands; log a hung link; and if the
+        # link stays down or hung past the grace period, drop the clients so they
         # see the outage (they reconnect, and are refused until the EVL is back).
         while True:
-            await asyncio.sleep(1)
-            if self.clients and self._down_too_long():
-                log.warning("EnvisaLink down for over %ss; disconnecting %d client(s)",
-                            self.down_grace, len(self.clients))
-                for w in list(self.clients):
-                    self.clients.discard(w)
+            await asyncio.sleep(0.5)
+            now = time.monotonic()
+            self._answer_overdue(now)
+            if self._stalled(now) and not self.stall_logged:
+                self.stall_logged = True
+                log.warning("EnvisaLink has not answered a command for %ss; answering "
+                            "clients locally (up to %ss)", self.stall_timeout, self.down_grace)
+            if self._down_too_long(now):
+                if self.upstream_writer is not None:
+                    log.warning("EnvisaLink hung for over %ss; reconnecting", self.down_grace)
+                    # Keep the outage's start time (so new clients are refused
+                    # now, not after another grace period) and drop the socket.
+                    self.down_since = self._unhealthy_since(now)
                     try:
-                        w.close()
+                        self.upstream_writer.transport.abort()
                     except Exception:  # noqa: BLE001
                         pass
+                if self.clients:
+                    log.warning("EnvisaLink down for over %ss; disconnecting %d client(s)",
+                                self.down_grace, len(self.clients))
+                    for w in list(self.clients):
+                        self.clients.discard(w)
+                        try:
+                            w.close()
+                        except Exception:  # noqa: BLE001
+                            pass
 
     # ---- downstream (clients sharing the connection) ------------------------
 
@@ -393,7 +461,15 @@ class Proxy:
                     break
                 if writer not in self.clients:
                     break                       # dropped by the down watchdog
-                if self._send_upstream(writer, line):
+                code = self.profile.cmd_code(line)
+                if (code is not None and code != self.profile.poll_code
+                        and self._stalled()):
+                    # EVL hung: don't queue keypresses/commands it might act on
+                    # much later; tell the client to retry. Polls still go up so
+                    # we notice when it answers again.
+                    writer.write(self.profile.local_reply(code))
+                    await writer.drain()
+                elif self._send_upstream(writer, line):
                     try:
                         await self.upstream_writer.drain()
                     except Exception:  # noqa: BLE001
@@ -401,7 +477,6 @@ class Proxy:
                 else:
                     # EVL link down (reconnecting): answer it ourselves so the
                     # client's command doesn't just vanish and time out.
-                    code = self.profile.cmd_code(line)
                     if code is not None:
                         log.debug("upstream down; answering %r locally", line.strip())
                         writer.write(self.profile.local_reply(code))
@@ -438,9 +513,17 @@ def main(argv=None):
                     help="password clients must send (default: same as --evl-pass)")
     ap.add_argument("--panel", default=os.environ.get("PANEL", "honeywell"), choices=list(PROFILES))
     ap.add_argument("--keepalive", type=int, default=int(os.environ.get("KEEPALIVE", "120")))
-    ap.add_argument("--down-grace", type=int, default=int(os.environ.get("DOWN_GRACE", "30")),
-                    help="seconds the EnvisaLink link may be down before clients are "
-                         "disconnected (until then the proxy answers their commands itself)")
+    ap.add_argument("--down-grace", type=int, default=int(os.environ.get("DOWN_GRACE", "300")),
+                    help="seconds the EnvisaLink link may be down or hung before clients "
+                         "are disconnected (until then the proxy answers their commands itself)")
+    ap.add_argument("--reply-timeout", type=float,
+                    default=float(os.environ.get("REPLY_TIMEOUT", "3")),
+                    help="seconds to wait for the EnvisaLink to answer a command before the "
+                         "proxy answers it itself (keep below Home Assistant's 5 s)")
+    ap.add_argument("--stall-timeout", type=float,
+                    default=float(os.environ.get("STALL_TIMEOUT", "10")),
+                    help="seconds without any command reply (while one is waiting) before "
+                         "the link counts as hung")
     ap.add_argument("--log-level", default=os.environ.get("LOG_LEVEL", "INFO"))
     args = ap.parse_args(argv)
 
@@ -455,7 +538,8 @@ def main(argv=None):
         listen_host=args.listen_host, listen_port=args.listen_port,
         client_pass=args.client_pass if args.client_pass is not None else args.evl_pass,
         profile=PROFILES[args.panel](), keepalive=args.keepalive,
-        down_grace=args.down_grace,
+        down_grace=args.down_grace, reply_timeout=args.reply_timeout,
+        stall_timeout=args.stall_timeout,
     )
     try:
         asyncio.run(proxy.run())

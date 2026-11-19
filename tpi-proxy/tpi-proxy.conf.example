@@ -15,3 +15,10 @@ LISTEN_PORT=4025             # clients (HA, the webapp) connect here
 # CLIENT_PASS=CHANGEME
 
 KEEPALIVE=120               # seconds between backstop keepalive polls
+
+# If the EnvisaLink goes quiet or drops, the proxy answers clients' commands itself
+# for up to DOWN_GRACE seconds so Home Assistant doesn't drop its connection (which
+# marks every zone unavailable and resets its last-changed time). Defaults:
+# DOWN_GRACE=300             # outage longer than this: clients are disconnected
+# REPLY_TIMEOUT=3            # answer a command locally if the EVL hasn't in this long (< HA's 5 s)
+# STALL_TIMEOUT=10           # no command replies for this long = EVL hung

@@ -26,7 +26,7 @@ python3 tpi_proxy.py --evl-host 192.168.21.123 --evl-pass SECRET --panel honeywe
 
 Then point a client at `this-host:4025`. Flags (or the matching env vars
 `EVL_HOST`, `EVL_PASS`, `PANEL`, `LISTEN_HOST`, `LISTEN_PORT`, `CLIENT_PASS`,
-`KEEPALIVE`, `DOWN_GRACE`): `--help` lists them. `--panel` is `honeywell` or `dsc`.
+`KEEPALIVE`, `DOWN_GRACE`, `REPLY_TIMEOUT`, `STALL_TIMEOUT`): `--help` lists them. `--panel` is `honeywell` or `dsc`.
 
 ## Which OpenWrt? apk vs opkg
 
@@ -40,7 +40,7 @@ Check with `apk --version` vs `opkg --version` on the router.
 ## Install on apk-based OpenWrt (24.10 / 25.12+) — .apk package
 
 A single, signed, noarch package is in [`openwrt-package/dist/`](openwrt-package/dist/):
-**`luci-app-envisalink-1.0.1.apk`**. It's self-contained — the proxy, its service, the
+**`luci-app-envisalink-1.0.2.apk`**. It's self-contained — the proxy, its service, the
 UCI config and the **Services → Envisalink** UI are all inside, and it depends only on
 packages that are in the OpenWrt feeds (`python3-light`, `python3-asyncio`,
 `python3-logging`, `luci-base`). So it's **one upload, no ordering**. Rebuild with
@@ -56,14 +56,14 @@ scp openwrt-package/keys/envisalink-pkg.rsa.pub root@ROUTER:/etc/apk/keys/
 
 **Then, via LuCI** (**System → Software**, router online): **Update lists…** (so apk can
 fetch the dependencies from the feeds), then **Upload Package…** →
-`luci-app-envisalink-1.0.1.apk`. That installs the proxy, the service and the LuCI page
+`luci-app-envisalink-1.0.2.apk`. That installs the proxy, the service and the LuCI page
 and pulls in the dependencies automatically.
 
 Then open **Services → Envisalink**, set the EnvisaLink IP / password / panel type,
 enable, **Save & Apply**, and **Start**.
 
 > **Prefer not to trust a key?** Install over SSH instead, which allows unsigned:
-> `apk add --allow-untrusted ./luci-app-envisalink-1.0.1.apk` (after copying it to the
+> `apk add --allow-untrusted ./luci-app-envisalink-1.0.2.apk` (after copying it to the
 > router). Or use the installer script below, which needs no package at all.
 
 ## Install on any OpenWrt — installer script (no package)
@@ -86,14 +86,14 @@ enable, Save & Apply, and Start.
 ## Install on opkg-based OpenWrt (≤23.05) — package + LuCI menu
 
 Two prebuilt, noarch packages are in [`openwrt-package/dist/`](openwrt-package/dist/):
-`tpi-proxy_1.0.1_all.ipk` (the proxy) and `luci-app-envisalink_1.0.1_all.ipk` (a
+`tpi-proxy_1.0.2_all.ipk` (the proxy) and `luci-app-envisalink_1.0.2_all.ipk` (a
 **Services → Envisalink** page to configure it and start/stop/restart it). Rebuild
 both anytime with `openwrt-package/build-ipk.sh` (needs only `ar`, `tar`, `sed` — no
 OpenWrt SDK).
 
 1. **Update the package lists** so opkg can pull dependencies — LuCI: **System →
    Software → Update lists…**, or `opkg update`.
-2. **Upload `luci-app-envisalink_1.0.1_all.ipk`** in **System → Software → Upload
+2. **Upload `luci-app-envisalink_1.0.2_all.ipk`** in **System → Software → Upload
    Package…**. opkg automatically installs its dependencies: `tpi-proxy` and the
    python3 modules (`python3-light`, `python3-asyncio`, `python3-logging`). The
    router needs internet and a few MB of flash for python3 (use extroot/USB if tight).
@@ -102,7 +102,7 @@ OpenWrt SDK).
 4. Use the **Start / Restart** buttons on that page. The status line shows whether
    it's running. `logread -e tpi-proxy` shows the connection log.
 
-> If you'd rather not use LuCI, upload just `tpi-proxy_1.0.1_all.ipk` and configure
+> If you'd rather not use LuCI, upload just `tpi-proxy_1.0.2_all.ipk` and configure
 > with UCI: `uci set envisalink.main.evl_host=...`, `uci set envisalink.main.evl_pass=...`,
 > `uci set envisalink.main.panel=honeywell`, `uci commit`, then
 > `/etc/init.d/evl-tpi-proxy enable && /etc/init.d/evl-tpi-proxy start`.
@@ -162,11 +162,23 @@ Switch them over one at a time so the proxy can grab the EnvisaLink once HA lets
   goes unanswered, so other clients' replies must not reach it. Replies to the
   proxy's own keepalive and refresh go to nobody. Zone, partition and keypad
   messages still go to every client.
-- If the upstream connection drops, the proxy reconnects automatically and keeps
-  your clients connected for up to `DOWN_GRACE` seconds (`--down-grace`, default
-  30). Meanwhile it answers their commands itself: keepalive polls get "accepted",
-  anything else gets a retryable "busy" error (`^xx,01$` / DSC `502001`), and
-  commands that were in flight when the link dropped are answered the same way.
-  If the link is still down after the grace period, the proxy disconnects its
-  clients and refuses new ones until the EnvisaLink is back, so they report the
-  outage instead of a false "connected".
+- **A client's command is never left unanswered.** Home Assistant's
+  `envisalink_new` gives each command 5 seconds. If it gets no reply, HA drops the
+  connection, every zone goes `unavailable`, and each zone's last-changed time
+  resets when it comes back. The EnvisaLink sometimes goes silent for about 2
+  minutes with the TCP connection still open, then drops it. So if the EnvisaLink
+  hasn't answered a command within `REPLY_TIMEOUT` seconds (`--reply-timeout`,
+  default 3), the proxy answers it itself: keepalive polls get "accepted",
+  anything else gets a retryable "busy" error (`^xx,01$` / DSC `502001`).
+- The link counts as **down** when the connection is closed, or when the
+  EnvisaLink has answered no command for `STALL_TIMEOUT` seconds
+  (`--stall-timeout`, default 10). While it's down, the proxy answers client
+  commands itself as above, and doesn't forward keypresses (arm/disarm) to a hung
+  EnvisaLink that might act on them much later. If the connection closed, the
+  proxy reconnects automatically.
+- Clients stay connected through an outage of up to `DOWN_GRACE` seconds
+  (`--down-grace`, default 300). After that, the proxy disconnects them, drops a
+  hung EnvisaLink connection, and refuses new clients until the EnvisaLink is
+  back, so they report the outage instead of a false "connected". On OpenWrt
+  these three are UCI options `down_grace`, `reply_timeout`, `stall_timeout`
+  (also on the LuCI page).

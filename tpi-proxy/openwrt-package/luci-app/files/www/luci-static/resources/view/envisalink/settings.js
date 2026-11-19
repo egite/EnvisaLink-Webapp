@@ -116,6 +116,24 @@ return view.extend({
 		o.placeholder = '120';
 		o.optional = true;
 
+		o = s.option(form.Value, 'down_grace', _('Outage grace (seconds)'),
+			_('While the EnvisaLink is down or not answering, the proxy answers clients itself for this long, so Home Assistant stays connected and zones keep their last-changed times. Longer outages disconnect the clients.'));
+		o.datatype = 'uinteger';
+		o.placeholder = '300';
+		o.optional = true;
+
+		o = s.option(form.Value, 'reply_timeout', _('Reply timeout (seconds)'),
+			_('Answer a command locally if the EnvisaLink has not in this long. Keep below 5 (Home Assistant\'s command timeout).'));
+		o.datatype = 'ufloat';
+		o.placeholder = '3';
+		o.optional = true;
+
+		o = s.option(form.Value, 'stall_timeout', _('Hung after (seconds)'),
+			_('No command replies for this long means the EnvisaLink is hung.'));
+		o.datatype = 'ufloat';
+		o.placeholder = '10';
+		o.optional = true;
+
 		return m.render();
 	}
 });
